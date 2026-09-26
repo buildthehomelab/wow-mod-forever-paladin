@@ -58,6 +58,26 @@ start.
 If you change the cooldown, mana cost or damage settings and use the client patch, change the
 matching values at the top of `tools/patch-forever-paladin-dbc.sh` and rebuild the patch.
 
+## Turning it off
+
+- **Keep the module, switch Holy Strike off:** set `ForeverPaladin.HolyStrike.Enable = 0`. Each
+  paladin loses Holy Strike at their next login, and gets it back at login if you set it to `1`
+  again.
+- **Remove the module for good:** set `Enable = 0` first if you can, so paladins lose it as they
+  log in. Then stop the worldserver, delete the module, rebuild, and run both uninstall files:
+
+  - `data/sql/uninstall/mod_forever_paladin_uninstall_world.sql` on the world database removes
+    the script binding.
+  - `data/sql/uninstall/mod_forever_paladin_uninstall_characters.sql` on the characters database
+    takes Holy Strike off every character, their action bars and saved cooldowns. Without it,
+    paladins who didn't log in keep the unscripted NPC version of the spell.
+
+  If you shipped the optional client patch, take its Holy Strike changes out of the client patch
+  too, or the tooltip and spellbook entry stay.
+
+AzerothCore never runs the `uninstall` folder by itself; it only runs the module's `db-world`
+folder.
+
 ## Optional client patch
 
 Without it, players see the old NPC tooltip ("Consecrates the caster's weapon..."), a flat
