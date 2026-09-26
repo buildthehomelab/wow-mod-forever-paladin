@@ -1,0 +1,47 @@
+[worldserver]
+
+########################################
+# mod-forever-paladin
+#
+# Every paladin learns Holy Strike, whatever their spec, as in WoW Forever. Their next melee
+# swing deals Holy damage plus a bonus, then Holy Strike goes on cooldown. No client patch.
+########################################
+
+#
+#    ForeverPaladin.HolyStrike.Enable
+#        Description: Master switch. With 0, paladins who learned Holy Strike lose it at their
+#                     next login.
+#        Default:     1
+#
+
+ForeverPaladin.HolyStrike.Enable = 1
+
+#
+#    ForeverPaladin.HolyStrike.Level
+#        Description: Level at which paladins learn Holy Strike. Paladins below it lose it (for
+#                     example after a GM lowers their level).
+#        Default:     6
+#
+
+ForeverPaladin.HolyStrike.Level = 6
+
+#
+#    ForeverPaladin.HolyStrike.Cooldown
+#        Description: Cooldown in milliseconds, starting when the swing happens (a miss or dodge
+#                     still starts it). 0 for none.
+#        Default:     12000
+#
+
+ForeverPaladin.HolyStrike.Cooldown = 12000
+
+#
+#    ForeverPaladin.HolyStrike.AttackPowerCoefficient
+#    ForeverPaladin.HolyStrike.SpellPowerCoefficient
+#        Description: Extra Holy damage on top of the weapon hit, as a share of the paladin's
+#                     attack power and Holy spell power. With both at 0.2, a paladin with 5000
+#                     attack power and 1500 spell power adds 1300.
+#        Default:     0.2
+#
+
+ForeverPaladin.HolyStrike.AttackPowerCoefficient = 0.2
+ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.2
