@@ -45,3 +45,14 @@ ForeverPaladin.HolyStrike.Cooldown = 12000
 
 ForeverPaladin.HolyStrike.AttackPowerCoefficient = 0.2
 ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.2
+
+#
+#    ForeverPaladin.HolyStrike.ManaCostPercent
+#        Description: Mana cost as a percentage of base mana, like Crusader Strike's 5%. That's
+#                     about 6 mana at level 6, 75 at 60 and 220 at 80. The tooltip always says
+#                     75 Mana, and the client greys the button out below 75 mana. 0 keeps the
+#                     flat 75.
+#        Default:     5
+#
+
+ForeverPaladin.HolyStrike.ManaCostPercent = 5

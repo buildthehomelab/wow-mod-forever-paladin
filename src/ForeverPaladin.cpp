@@ -3,7 +3,8 @@
  *
  * Every paladin learns Holy Strike at level 6, whatever their spec, as in WoW Forever. It's a
  * next-swing attack: the paladin's next melee swing deals Holy damage plus a bonus from attack
- * power and spell power, then the ability goes on a 12 second cooldown.
+ * power and spell power, then the ability goes on a 12 second cooldown. Like Crusader Strike, it
+ * costs 5% of base mana.
  *
  * No client patch. The spell is Holy Strike (13953), a spell the 3.3.5 client already has: Blizzard
  * only ever gave it to NPCs (Scarlet Crusade and others), and no item, trainer or talent teaches
@@ -11,7 +12,7 @@
  * next-swing attack, like Heroic Strike, so that's how it works here too. Making it instant would
  * need a Spell.dbc patch.
  *
- * Only player casts are changed. NPCs that cast Holy Strike keep their damage and cooldown.
+ * Only player casts are changed. NPCs that cast Holy Strike keep their damage, cooldown and cost.
  *
  * Released under the MIT License.
  */
@@ -36,9 +37,16 @@ namespace
         uint32 cooldown = 12000;
         float attackPowerCoefficient = 0.2f;
         float spellPowerCoefficient = 0.2f;
+        float manaCostPercent = 5.0f;
     };
 
     Config config;
+
+    // What Holy Strike costs this player: a share of base mana, like Crusader Strike.
+    int32 GetManaCost(Player* player)
+    {
+        return int32(player->GetCreateMana() * config.manaCostPercent / 100.0f);
+    }
 
     // Teach or remove Holy Strike so it matches the paladin's level and the Enable setting.
     // Turning the module off takes it away again at the next login.
@@ -71,6 +79,41 @@ class spell_holy_strike : public SpellScript
     {
         Unit* caster = GetCaster();
         return caster ? caster->ToPlayer() : nullptr;
+    }
+
+    // The client's copy of Holy Strike costs a flat 75 mana at every level, a big share of a
+    // level 6 paladin's mana and nothing at 80. The core still checks and takes those 75; this
+    // makes sure the paladin also has the real cost, which is more than 75 above level 60.
+    SpellCastResult CheckManaCost()
+    {
+        Player* player = GetPlayerCaster();
+        if (!player || config.manaCostPercent <= 0.0f)
+            return SPELL_CAST_OK;
+
+        if (int32(player->GetPower(POWER_MANA)) < GetManaCost(player))
+            return SPELL_FAILED_NO_POWER;
+
+        return SPELL_CAST_OK;
+    }
+
+    // The core has just taken its 75 mana (mana is taken in full even on a miss). Give back the
+    // difference, or take the rest.
+    void AdjustManaCost()
+    {
+        Player* player = GetPlayerCaster();
+        if (!player || config.manaCostPercent <= 0.0f || player->GetCommandStatus(CHEAT_POWER))
+            return;
+
+        // A triggered cast (a GM's .cast triggered, say) took no mana.
+        Spell* spell = GetSpell();
+        if (spell->HasTriggeredCastFlag(TRIGGERED_IGNORE_POWER_AND_REAGENT_COST))
+            return;
+
+        int32 const taken = spell->GetPowerCost();
+        if (!taken)
+            return;
+
+        player->ModifyPower(POWER_MANA, taken - GetManaCost(player));
     }
 
     // The game data only adds a small bonus to the weapon hit (about 220 at level 80), which
@@ -117,7 +160,9 @@ class spell_holy_strike : public SpellScript
 
     void Register() override
     {
+        OnCheckCast += SpellCheckCastFn(spell_holy_strike::CheckManaCost);
         OnHit += SpellHitFn(spell_holy_strike::AddBonusDamage);
+        AfterCast += SpellCastFn(spell_holy_strike::AdjustManaCost);
         AfterCast += SpellCastFn(spell_holy_strike::StartCooldown);
     }
 };
@@ -134,6 +179,7 @@ public:
         config.cooldown               = sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.Cooldown", 12000);
         config.attackPowerCoefficient = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.AttackPowerCoefficient", 0.2f);
         config.spellPowerCoefficient  = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.SpellPowerCoefficient", 0.2f);
+        config.manaCostPercent        = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.ManaCostPercent", 5.0f);
     }
 };
 
