@@ -6,13 +6,13 @@
  * power and spell power, then the ability goes on a 12 second cooldown. Like Crusader Strike, it
  * costs 5% of base mana.
  *
- * No client patch. The spell is Holy Strike (13953), a spell the 3.3.5 client already has: Blizzard
- * only ever gave it to NPCs (Scarlet Crusade and others), and no item, trainer or talent teaches
- * it, so its name, icon and tooltip are already right in every client. The client shows it as a
- * next-swing attack, like Heroic Strike, so that's how it works here too. Making it instant would
- * need a Spell.dbc patch.
+ * The spell is Holy Strike (13953), a spell the 3.3.5 client already has: Blizzard only ever gave
+ * it to NPCs (Scarlet Crusade and others), and no item, trainer or talent teaches it. So it works
+ * without a client patch. The client shows it as a next-swing attack, like Heroic Strike, so
+ * that's how it works here too. tools/patch-forever-paladin-dbc.sh makes an optional client patch
+ * that updates its tooltip and puts it in the Holy tab of the spellbook.
  *
- * Only player casts are changed. NPCs that cast Holy Strike keep their damage, cooldown and cost.
+ * NPCs that cast Holy Strike keep their damage, cooldown and cost.
  *
  * Released under the MIT License.
  */
@@ -21,13 +21,15 @@
 #include "Opcodes.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "SpellScript.h"
 #include "SpellScriptLoader.h"
 #include "WorldPacket.h"
 
 namespace
 {
-    // Must match the SQL.
+    // Must match the SQL and tools/patch-forever-paladin-dbc.sh.
     constexpr uint32 SPELL_HOLY_STRIKE = 13953;
 
     struct Config
@@ -37,15 +39,40 @@ namespace
         uint32 cooldown = 12000;
         float attackPowerCoefficient = 0.2f;
         float spellPowerCoefficient = 0.2f;
-        float manaCostPercent = 5.0f;
+        uint32 manaCostPercent = 5;
     };
 
     Config config;
 
-    // What Holy Strike costs this player: a share of base mana, like Crusader Strike.
-    int32 GetManaCost(Player* player)
+    // The game data's flat mana cost (75), read before the module changes it. NPCs keep paying it.
+    uint32 flatManaCost = 0;
+    bool flatManaCostRead = false;
+
+    // Make the server charge a share of base mana, like Crusader Strike, instead of the flat 75.
+    // The core then checks and takes the right amount for players by itself. Runs once the spells
+    // are loaded, and again when the config is reloaded.
+    void ApplyManaCost()
     {
-        return int32(player->GetCreateMana() * config.manaCostPercent / 100.0f);
+        SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(SPELL_HOLY_STRIKE));
+        if (!spellInfo)
+            return;
+
+        if (!flatManaCostRead)
+        {
+            flatManaCost = spellInfo->ManaCost;
+            flatManaCostRead = true;
+        }
+
+        if (config.manaCostPercent)
+        {
+            spellInfo->ManaCost = 0;
+            spellInfo->ManaCostPercentage = config.manaCostPercent;
+        }
+        else
+        {
+            spellInfo->ManaCost = flatManaCost;
+            spellInfo->ManaCostPercentage = 0;
+        }
     }
 
     // Teach or remove Holy Strike so it matches the paladin's level and the Enable setting.
@@ -65,7 +92,7 @@ namespace
     }
 }
 
-// 13953 - Holy Strike, when a player casts it.
+// 13953 - Holy Strike
 class spell_holy_strike : public SpellScript
 {
     PrepareSpellScript(spell_holy_strike);
@@ -81,39 +108,35 @@ class spell_holy_strike : public SpellScript
         return caster ? caster->ToPlayer() : nullptr;
     }
 
-    // The client's copy of Holy Strike costs a flat 75 mana at every level, a big share of a
-    // level 6 paladin's mana and nothing at 80. The core still checks and takes those 75; this
-    // makes sure the paladin also has the real cost, which is more than 75 above level 60.
-    SpellCastResult CheckManaCost()
+    // An NPC casting Holy Strike while the server charges a share of base mana. It should still
+    // pay the flat 75, so the core's share is topped up below.
+    Unit* GetNpcPayingFlatCost()
     {
-        Player* player = GetPlayerCaster();
-        if (!player || config.manaCostPercent <= 0.0f)
-            return SPELL_CAST_OK;
+        Unit* caster = GetCaster();
+        if (!caster || caster->IsPlayer() || !config.manaCostPercent)
+            return nullptr;
 
-        if (int32(player->GetPower(POWER_MANA)) < GetManaCost(player))
+        if (GetSpell()->HasTriggeredCastFlag(TRIGGERED_IGNORE_POWER_AND_REAGENT_COST))
+            return nullptr;
+
+        return caster;
+    }
+
+    SpellCastResult CheckNpcManaCost()
+    {
+        Unit* npc = GetNpcPayingFlatCost();
+        if (npc && npc->GetPower(POWER_MANA) < flatManaCost)
             return SPELL_FAILED_NO_POWER;
 
         return SPELL_CAST_OK;
     }
 
-    // The core has just taken its 75 mana (mana is taken in full even on a miss). Give back the
-    // difference, or take the rest.
-    void AdjustManaCost()
+    // The core has taken its share of the NPC's base mana (mana is taken in full even on a
+    // miss). Take the rest of the 75.
+    void TakeNpcManaCost()
     {
-        Player* player = GetPlayerCaster();
-        if (!player || config.manaCostPercent <= 0.0f || player->GetCommandStatus(CHEAT_POWER))
-            return;
-
-        // A triggered cast (a GM's .cast triggered, say) took no mana.
-        Spell* spell = GetSpell();
-        if (spell->HasTriggeredCastFlag(TRIGGERED_IGNORE_POWER_AND_REAGENT_COST))
-            return;
-
-        int32 const taken = spell->GetPowerCost();
-        if (!taken)
-            return;
-
-        player->ModifyPower(POWER_MANA, taken - GetManaCost(player));
+        if (Unit* npc = GetNpcPayingFlatCost())
+            npc->ModifyPower(POWER_MANA, GetSpell()->GetPowerCost() - int32(flatManaCost));
     }
 
     // The game data only adds a small bonus to the weapon hit (about 220 at level 80), which
@@ -132,10 +155,10 @@ class spell_holy_strike : public SpellScript
         SetHitDamage(GetHitDamage() + bonus);
     }
 
-    // The client's Spell.dbc has no cooldown for Holy Strike, and the core's own override for it
-    // (spell_cooldown_overrides, 6 seconds) is meant for NPCs and isn't sent to the client. So set
-    // the player's cooldown here and tell the client, which then shows it on the action bar.
-    // This runs after the core has added its cooldown, and replaces it.
+    // The stock client's Spell.dbc has no cooldown for Holy Strike, and the core's own override
+    // for it (spell_cooldown_overrides, 6 seconds) is meant for NPCs and isn't sent to the client.
+    // So set the player's cooldown here and tell the client, which then shows it on the action
+    // bar. This runs after the core has added its cooldown, and replaces it.
     void StartCooldown()
     {
         Player* player = GetPlayerCaster();
@@ -160,9 +183,9 @@ class spell_holy_strike : public SpellScript
 
     void Register() override
     {
-        OnCheckCast += SpellCheckCastFn(spell_holy_strike::CheckManaCost);
+        OnCheckCast += SpellCheckCastFn(spell_holy_strike::CheckNpcManaCost);
         OnHit += SpellHitFn(spell_holy_strike::AddBonusDamage);
-        AfterCast += SpellCastFn(spell_holy_strike::AdjustManaCost);
+        AfterCast += SpellCastFn(spell_holy_strike::TakeNpcManaCost);
         AfterCast += SpellCastFn(spell_holy_strike::StartCooldown);
     }
 };
@@ -179,7 +202,15 @@ public:
         config.cooldown               = sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.Cooldown", 12000);
         config.attackPowerCoefficient = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.AttackPowerCoefficient", 0.2f);
         config.spellPowerCoefficient  = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.SpellPowerCoefficient", 0.2f);
-        config.manaCostPercent        = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.ManaCostPercent", 5.0f);
+        config.manaCostPercent        = sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.ManaCostPercent", 5);
+
+        // At startup the spells aren't loaded yet; OnBeforeWorldInitialized does it then.
+        ApplyManaCost();
+    }
+
+    void OnBeforeWorldInitialized() override
+    {
+        ApplyManaCost();
     }
 };
 

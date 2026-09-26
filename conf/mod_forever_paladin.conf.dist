@@ -48,10 +48,11 @@ ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.2
 
 #
 #    ForeverPaladin.HolyStrike.ManaCostPercent
-#        Description: Mana cost as a percentage of base mana, like Crusader Strike's 5%. That's
-#                     about 6 mana at level 6, 75 at 60 and 220 at 80. The tooltip always says
-#                     75 Mana, and the client greys the button out below 75 mana. 0 keeps the
-#                     flat 75.
+#        Description: Mana cost as a whole percentage of base mana, like Crusader Strike's 5%.
+#                     That's about 6 mana at level 6, 75 at 60 and 220 at 80. 0 keeps the game
+#                     data's flat 75. NPCs always pay 75. Without the optional client patch the
+#                     tooltip says 75 Mana whatever this is set to; with it, the patch must use
+#                     the same value (see tools/patch-forever-paladin-dbc.sh).
 #        Default:     5
 #
 
