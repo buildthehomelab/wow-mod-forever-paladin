@@ -1,9 +1,13 @@
 # Forever Paladin
 
 An [AzerothCore](https://www.azerothcore.org/) (WotLK 3.3.5a) module that brings WoW Forever's
-paladin changes to a 3.3.5 server. For now that's Holy Strike: every paladin learns it at level 6,
-whatever their spec. It works without a client patch; an optional one updates the tooltip and
-puts Holy Strike in the Holy tab of the spellbook.
+paladin changes to a 3.3.5 server:
+
+- **Holy Strike:** every paladin learns it at level 6, whatever their spec.
+- **Shield Specialization's mana return:** blocks can restore 6% of base mana.
+
+Both work without a client patch; an optional one updates Holy Strike's tooltip and puts it in
+the Holy tab of the spellbook.
 
 ## Holy Strike
 
@@ -18,6 +22,27 @@ puts Holy Strike in the Holy tab of the spellbook.
 - It needs a melee weapon, and you have to face the target.
 
 It isn't tied to a spec or a talent, so dual spec and talent resets don't affect it.
+
+## Shield Specialization's mana return
+
+In WoW Forever, Shield Specialization also gives blocks a 33% chance to restore 6% of your maximum
+mana, at most once every 3 seconds. 3.3.5 has no Shield Specialization: Wrath folded its block
+bonus into Redoubt. So here Redoubt carries the mana return:
+
+- When you **block** a melee or ranged attack, you have a chance to get back **6% of your base
+  mana**. That's about 8 mana at level 6, 91 at 60 and 264 at 80. WoW Forever uses max mana;
+  base mana doesn't grow with Intellect, so gear doesn't make it bigger.
+- The chance depends on your points in **Redoubt**: 33%, 66% or 100%. No Redoubt, no mana.
+- It can happen **at most once every 3 seconds**. A block that doesn't return mana doesn't use up
+  the 3 seconds.
+- The combat log shows it as "You gain 264 Mana from Redoubt."
+
+It follows your talents on its own: a talent reset or dual spec switch turns it on or off
+straight away. Redoubt's tooltip doesn't mention it.
+
+How it works: every paladin carries a hidden aura, made from an unused server-side spell stub
+(67553) that the client doesn't have. A `spell_proc` row makes it proc on blocks, and its script
+rolls the chance for your Redoubt rank and gives the mana.
 
 ## Why a next-swing attack and not an instant strike
 
@@ -54,12 +79,18 @@ start.
 | `ForeverPaladin.HolyStrike.AttackPowerCoefficient` | `0.2` | Extra damage as a share of attack power. |
 | `ForeverPaladin.HolyStrike.SpellPowerCoefficient` | `0.2` | Extra damage as a share of Holy spell power. |
 | `ForeverPaladin.HolyStrike.ManaCostPercent` | `5` | Mana cost as a whole percentage of base mana. `0` keeps the flat 75. |
+| `ForeverPaladin.ShieldMana.Enable` | `1` | Master switch for the mana return on block. |
+| `ForeverPaladin.ShieldMana.ChanceRank1` / `2` / `3` | `33` / `66` / `100` | Chance in percent with 1, 2 or 3 points in Redoubt. |
+| `ForeverPaladin.ShieldMana.BaseManaPercent` | `6` | Mana returned, as a percentage of base mana. |
+| `ForeverPaladin.ShieldMana.Cooldown` | `3000` | Minimum milliseconds between two mana returns. |
 
 If you change the cooldown, mana cost or damage settings and use the client patch, change the
 matching values at the top of `tools/patch-forever-paladin-dbc.sh` and rebuild the patch.
 
 ## Turning it off
 
+- **Keep the module, switch the mana return off:** set `ForeverPaladin.ShieldMana.Enable = 0`
+  and reload the config. The hidden aura stays on paladins but does nothing.
 - **Keep the module, switch Holy Strike off:** set `ForeverPaladin.HolyStrike.Enable = 0`. Each
   paladin loses Holy Strike at their next login, and gets it back at login if you set it to `1`
   again.

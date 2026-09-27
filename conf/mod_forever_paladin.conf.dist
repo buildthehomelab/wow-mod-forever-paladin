@@ -57,3 +57,51 @@ ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.2
 #
 
 ForeverPaladin.HolyStrike.ManaCostPercent = 5
+
+########################################
+# Shield Specialization's mana return
+#
+# In WoW Forever, Shield Specialization gives blocks a chance to restore 6% of max mana, at most
+# once every 3 seconds. 3.3.5 has no Shield Specialization (its block bonus is part of Redoubt), so
+# paladins with Redoubt get it here, with the chance set per Redoubt rank, and it's a share of base
+# mana instead of max mana. No client patch; the Redoubt tooltip doesn't mention it.
+########################################
+
+#
+#    ForeverPaladin.ShieldMana.Enable
+#        Description: Master switch. With 0, blocks never return mana.
+#        Default:     1
+#
+
+ForeverPaladin.ShieldMana.Enable = 1
+
+#
+#    ForeverPaladin.ShieldMana.ChanceRank1
+#    ForeverPaladin.ShieldMana.ChanceRank2
+#    ForeverPaladin.ShieldMana.ChanceRank3
+#        Description: Chance in percent that a block returns mana, with 1, 2 or 3 points in
+#                     Redoubt. Paladins without Redoubt never get it.
+#        Default:     33, 66, 100
+#
+
+ForeverPaladin.ShieldMana.ChanceRank1 = 33
+ForeverPaladin.ShieldMana.ChanceRank2 = 66
+ForeverPaladin.ShieldMana.ChanceRank3 = 100
+
+#
+#    ForeverPaladin.ShieldMana.BaseManaPercent
+#        Description: Mana returned, as a percentage of base mana (not max mana, so Intellect
+#                     doesn't raise it). 6% is about 8 mana at level 6, 91 at 60 and 264 at 80.
+#        Default:     6
+#
+
+ForeverPaladin.ShieldMana.BaseManaPercent = 6
+
+#
+#    ForeverPaladin.ShieldMana.Cooldown
+#        Description: Minimum time in milliseconds between two mana returns. A block that fails
+#                     the chance roll doesn't start it.
+#        Default:     3000
+#
+
+ForeverPaladin.ShieldMana.Cooldown = 3000

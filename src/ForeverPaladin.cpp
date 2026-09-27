@@ -14,23 +14,44 @@
  *
  * NPCs that cast Holy Strike keep their damage, cooldown and cost.
  *
+ * Shield Specialization's mana return: in WoW Forever that talent also gives blocks a 33% chance
+ * to restore 6% of maximum mana, at most once every 3 seconds. Here it's 6% of base mana, so
+ * Intellect doesn't make it bigger. 3.3.5 has no Shield Specialization
+ * (its block bonus became part of Redoubt), so here Redoubt gets the mana return, with the chance
+ * set per Redoubt rank. Every paladin carries a hidden aura, an unused server-side stub (67553),
+ * that procs when they block; the proc only pays out while they have Redoubt, so talent resets
+ * and dual spec need no extra handling. The combat log credits the mana to Redoubt.
+ *
  * Released under the MIT License.
  */
 
 #include "Config.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "Random.h"
 #include "ScriptMgr.h"
+#include "SpellAuraEffects.h"
+#include "SpellAuras.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "SpellScript.h"
 #include "SpellScriptLoader.h"
 #include "WorldPacket.h"
 
+#include <array>
+#include <cmath>
+
 namespace
 {
     // Must match the SQL and tools/patch-forever-paladin-dbc.sh.
     constexpr uint32 SPELL_HOLY_STRIKE = 13953;
+
+    // Must match the SQL. 67553 is AzerothCore's empty "Pet Scaling - Master Spell 02" stub,
+    // renamed; the client doesn't have it.
+    constexpr uint32 SPELL_SHIELD_MANA = 67553;
+
+    // Redoubt ranks 1 to 3 (the talents, not the block chance buff they trigger).
+    constexpr std::array<uint32, 3> SPELL_REDOUBT_RANKS = { 20127, 20130, 20135 };
 
     struct Config
     {
@@ -40,6 +61,11 @@ namespace
         float attackPowerCoefficient = 0.2f;
         float spellPowerCoefficient = 0.2f;
         uint32 manaCostPercent = 5;
+
+        bool shieldManaEnabled = true;
+        std::array<float, 3> shieldManaChance = { 33.0f, 66.0f, 100.0f };
+        float shieldManaPercent = 6.0f;
+        uint32 shieldManaCooldown = 3000;
     };
 
     Config config;
@@ -73,6 +99,18 @@ namespace
             spellInfo->ManaCost = flatManaCost;
             spellInfo->ManaCostPercentage = 0;
         }
+    }
+
+    // The 3 second limit is the proc cooldown in the SQL's spell_proc row. The core only starts
+    // it when the proc goes through, so a block that fails the chance roll doesn't use it up.
+    // Runs once the spell data is loaded, and again when the config is reloaded.
+    void ApplyShieldManaCooldown()
+    {
+        SpellProcEntry* procEntry = const_cast<SpellProcEntry*>(sSpellMgr->GetSpellProcEntry(SPELL_SHIELD_MANA));
+        if (!procEntry)
+            return;
+
+        procEntry->Cooldown = Milliseconds(config.shieldManaCooldown);
     }
 
     // Teach or remove Holy Strike so it matches the paladin's level and the Enable setting.
@@ -190,6 +228,66 @@ class spell_holy_strike : public SpellScript
     }
 };
 
+// 67553 - Pet Scaling - Master Spell 02, renamed Shield Specialization. Every paladin carries it,
+// hidden; spell_proc makes it proc when they block.
+class spell_pal_forever_shield_mana : public AuraScript
+{
+    PrepareAuraScript(spell_pal_forever_shield_mana);
+
+    // The Redoubt rank the paladin has (1 to 3), or 0. Talent spells are auras on their owner.
+    uint32 GetRedoubtRank(Unit* target, uint32& spellId)
+    {
+        for (uint32 rank = SPELL_REDOUBT_RANKS.size(); rank > 0; --rank)
+        {
+            if (target->HasAura(SPELL_REDOUBT_RANKS[rank - 1]))
+            {
+                spellId = SPELL_REDOUBT_RANKS[rank - 1];
+                return rank;
+            }
+        }
+
+        return 0;
+    }
+
+    // The chance is rolled here, not in spell_proc, because it depends on the Redoubt rank.
+    // A failed roll returns false, so the 3 second cooldown doesn't start.
+    bool CheckProc(ProcEventInfo& /*eventInfo*/)
+    {
+        Unit* target = GetTarget();
+        if (!config.shieldManaEnabled || !target->IsPlayer() || target->getPowerType() != POWER_MANA)
+            return false;
+
+        uint32 redoubtSpellId = 0;
+        uint32 const rank = GetRedoubtRank(target, redoubtSpellId);
+        if (!rank)
+            return false;
+
+        return roll_chance_f(config.shieldManaChance[rank - 1]);
+    }
+
+    // A share of base mana, so it doesn't grow with Intellect. Shows in the combat log as "You
+    // gain 264 Mana from Redoubt." and, like any energize, adds a little threat.
+    void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& /*eventInfo*/)
+    {
+        PreventDefaultAction();
+
+        Unit* target = GetTarget();
+        uint32 redoubtSpellId = 0;
+        if (!GetRedoubtRank(target, redoubtSpellId))
+            return;
+
+        uint32 const mana = uint32(std::lround(target->GetCreateMana() * config.shieldManaPercent / 100.0f));
+        if (mana)
+            target->EnergizeBySpell(target, redoubtSpellId, mana, POWER_MANA);
+    }
+
+    void Register() override
+    {
+        DoCheckProc += AuraCheckProcFn(spell_pal_forever_shield_mana::CheckProc);
+        OnEffectProc += AuraEffectProcFn(spell_pal_forever_shield_mana::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
+    }
+};
+
 class ForeverPaladinWorldScript : public WorldScript
 {
 public:
@@ -204,13 +302,22 @@ public:
         config.spellPowerCoefficient  = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.SpellPowerCoefficient", 0.2f);
         config.manaCostPercent        = sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.ManaCostPercent", 5);
 
+        config.shieldManaEnabled      = sConfigMgr->GetOption<bool>("ForeverPaladin.ShieldMana.Enable", true);
+        config.shieldManaChance[0]    = sConfigMgr->GetOption<float>("ForeverPaladin.ShieldMana.ChanceRank1", 33.0f);
+        config.shieldManaChance[1]    = sConfigMgr->GetOption<float>("ForeverPaladin.ShieldMana.ChanceRank2", 66.0f);
+        config.shieldManaChance[2]    = sConfigMgr->GetOption<float>("ForeverPaladin.ShieldMana.ChanceRank3", 100.0f);
+        config.shieldManaPercent      = sConfigMgr->GetOption<float>("ForeverPaladin.ShieldMana.BaseManaPercent", 6.0f);
+        config.shieldManaCooldown     = sConfigMgr->GetOption<uint32>("ForeverPaladin.ShieldMana.Cooldown", 3000);
+
         // At startup the spells aren't loaded yet; OnBeforeWorldInitialized does it then.
         ApplyManaCost();
+        ApplyShieldManaCooldown();
     }
 
     void OnBeforeWorldInitialized() override
     {
         ApplyManaCost();
+        ApplyShieldManaCooldown();
     }
 };
 
@@ -222,6 +329,11 @@ public:
     void OnPlayerLogin(Player* player) override
     {
         UpdateHolyStrike(player);
+
+        // The Shield Specialization aura is passive, so it stays through death and isn't saved;
+        // each login adds it again. With ShieldMana.Enable = 0 it does nothing.
+        if (player->getClass() == CLASS_PALADIN && !player->HasAura(SPELL_SHIELD_MANA))
+            player->AddAura(SPELL_SHIELD_MANA, player);
     }
 
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
@@ -235,4 +347,5 @@ void AddForeverPaladinScripts()
     new ForeverPaladinWorldScript();
     new ForeverPaladinPlayerScript();
     RegisterSpellScript(spell_holy_strike);
+    RegisterSpellScript(spell_pal_forever_shield_mana);
 }

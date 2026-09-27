@@ -7,7 +7,17 @@
 -- script.
 --
 -- Removes the script binding on Holy Strike (13953). NPCs that cast it are unaffected either way;
--- the core's own spell_cooldown_overrides row for it was never touched. Idempotent: safe to run
--- again.
+-- the core's own spell_cooldown_overrides row for it was never touched. Also puts 67553 back to
+-- the empty stub AzerothCore ships and removes its spell_proc row and script binding (Shield
+-- Specialization's mana return). Idempotent: safe to run again.
 
-DELETE FROM `spell_script_names` WHERE `ScriptName` = 'spell_holy_strike';
+DELETE FROM `spell_script_names` WHERE `ScriptName` IN ('spell_holy_strike', 'spell_pal_forever_shield_mana');
+
+DELETE FROM `spell_proc` WHERE `SpellId` = 67553;
+
+UPDATE `spell_dbc` SET
+    `Attributes` = 384,
+    `Effect_1` = 0, `EffectBasePoints_1` = 0, `ImplicitTargetA_1` = 0, `EffectMultipleValue_1` = 0,
+    `EffectAura_1` = 0, `EffectMiscValue_1` = 0,
+    `Name_Lang_enUS` = 'Pet Scaling - Master Spell 02 - Strength, Agility, Stamina'
+WHERE `ID` = 67553;
