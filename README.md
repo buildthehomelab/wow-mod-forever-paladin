@@ -5,17 +5,27 @@ paladin changes to a 3.3.5 server:
 
 - **Holy Strike:** every paladin learns it at level 6, whatever their spec.
 - **Shield Specialization's mana return:** blocks can restore 6% of base mana.
+- **Seal of Fury:** a tanking seal whose Judgement taunts. Needs the client patch.
+- **1 hour Blessings** and **40 second Judgements**, with the Blessing of Might and Wisdom glyphs
+  reworked to match.
 
-Both work without a client patch; an optional one updates Holy Strike's tooltip and puts it in
-the Holy tab of the spellbook.
+Players need the client patch for Holy Strike (it's instant, and the stock client thinks it's a
+next-swing attack) and Seal of Fury (four new spells). The mana return and the durations work
+without it; the patch only updates their tooltips.
+
+Some of WoW Forever's paladin changes are already how 3.3.5 works, so the module leaves them
+alone: Judgement doesn't use up the seal, Blessing of Kings is trained (level 20), and the Fire,
+Frost and Shadow Resistance Auras already reach the whole raid.
 
 ## Holy Strike
 
 - Paladins learn **Holy Strike** at level 6. Existing paladins get it at their next login.
-- It's a **next-swing attack**, like Heroic Strike: press it and your next melee swing deals
-  Holy damage instead of a normal hit. Holy damage ignores armor.
-- That swing does your weapon damage, the spell's small built-in bonus, and **20% of your attack
-  power plus 20% of your Holy spell power** on top.
+- It's an **instant strike** on the global cooldown, like Crusader Strike. All its damage is
+  Holy, so it ignores armor.
+- It deals WoW Forever's damage: **40% of weapon damage + 1.8 per level + 42.9% of your Holy
+  spell power**. Forever gives 108 flat at level 60 (12 at rank 1, level 6); 1.8 per level
+  matches both and makes it 144 at 80. With a 1293 weapon hit and 1200 spell power at level 80,
+  that's about 1140; with 343 and 300 at level 60, about 374.
 - Then it goes on a **12 second cooldown**, which shows on the action bar.
 - It costs **5% of base mana**, like Crusader Strike: about 6 mana at level 6, 75 at 60 and 220
   at 80.
@@ -44,16 +54,65 @@ How it works: every paladin carries a hidden aura, made from an unused server-si
 (67553) that the client doesn't have. A `spell_proc` row makes it proc on blocks, and its script
 rolls the chance for your Redoubt rank and gives the mana.
 
-## Why a next-swing attack and not an instant strike
+## Seal of Fury
+
+WoW Forever's tanking seal. Paladins learn it at **level 10**, whatever their spec, and it sits in
+the Protection tab of the spellbook.
+
+- **The seal** lasts 30 minutes and costs 14% of base mana, like the other seals. Each melee hit
+  deals extra Holy damage, the same as Seal of Righteousness: weapon speed × (2.2% of attack
+  power + 4.4% of Holy spell power). With a 2.6 speed weapon, 4000 attack power and 1200 spell
+  power that's 366 per hit.
+- **Fury Ward:** with a **shield equipped**, each of those hits also gives you an absorb worth
+  **50% of the Holy damage it did** (183 in that example). Wards don't stack: a bigger one
+  replaces the current one, and every hit keeps it up for 10 more seconds, so fast weapons keep it
+  topped up better.
+- **Judgement of Fury:** judging the seal deals Holy damage like Judgement of Righteousness (1 +
+  32% of spell power + 20% of attack power) and **taunts the target for 4 seconds**. That's a
+  third taunt next to Hand of Reckoning and Righteous Defense, on the Judgement cooldown.
+  Judgement talents and glyphs apply to it, and it still puts your Judgement of Light, Wisdom or
+  Justice on the target as usual.
+
+Only one seal at a time, as always. WoW Forever's Improved Seal of Fury talent (mana when a ward
+breaks) isn't included: adding a talent needs a bigger client patch.
+
+The spells are new (90080 Seal of Fury, 90081 Judgement of Fury, 90082 its Holy damage, 90083
+Fury Ward). The server gets them from `spell_dbc`, the client from the patch
+(`tools/build_patch.py`). A player without the patch can't see or cast the seal.
+
+## Blessings, Judgements and glyphs
+
+As in WoW Forever:
+
+- **Blessings last 1 hour:** Might, Wisdom, Kings and Sanctuary, and their Greater Blessings
+  (instead of 10 and 30 minutes).
+- **Judgement debuffs last 40 seconds:** Judgement of Light, Judgement of Wisdom, Heart of the
+  Crusader and Judgements of the Just (instead of 20). **Judgement of Justice keeps 20.**
+
+Glyph of Blessing of Might and Glyph of Blessing of Wisdom made those blessings last 20 minutes
+longer when cast on yourself, which means little once blessings last an hour. They now make
+**Blessing of Might / Wisdom and their Greater Blessings 50% cheaper**, like Glyph of Blessing of
+Kings already does for Kings. Glyph of Blessing of Kings is unchanged.
+
+No talent changes a blessing's duration, so none needed changing. (Checked against Spell.dbc: the
+talents that touch blessings are Improved Blessing of Might and Wisdom, which add to their
+effect, and Benediction, which lowers their cost.)
+
+The server changes all of this when it starts; players see the right durations on their buffs
+with or without the patch. The patch updates the tooltips ("Lasts 60 min", "40 sec", the glyph
+text). Blessings cast before the change keep the duration they were cast with.
+
+## Where Holy Strike comes from
 
 The spell is Holy Strike (13953), which the 3.3.5 client already has. Blizzard only ever gave it to
 NPCs, like the Scarlet Crusade. No item, trainer or talent teaches it to players, so reusing it
 changes nothing players could already get, and every client already has its name and icon.
 
-The client knows it as a next-swing attack, so that's how it works here. Making it instant, like
-in WoW Forever, would mean every player needs the client patch, or their button misbehaves.
+The game data makes it a next-swing attack, like Heroic Strike. The module makes it instant on
+the server, and the client patch does the same for the client; a client without the patch
+treats the button as a next-swing attack, so it misbehaves.
 
-NPCs that cast Holy Strike are unchanged: same damage, same cooldown, same 75 mana.
+NPCs that cast Holy Strike keep their damage, cooldown and 75 mana; they strike instantly too.
 
 ## Install
 
@@ -76,16 +135,28 @@ start.
 | `ForeverPaladin.HolyStrike.Enable` | `1` | Master switch. With `0`, paladins lose Holy Strike at their next login. |
 | `ForeverPaladin.HolyStrike.Level` | `6` | Level at which paladins learn it. |
 | `ForeverPaladin.HolyStrike.Cooldown` | `12000` | Cooldown in milliseconds. `0` for none. |
-| `ForeverPaladin.HolyStrike.AttackPowerCoefficient` | `0.2` | Extra damage as a share of attack power. |
-| `ForeverPaladin.HolyStrike.SpellPowerCoefficient` | `0.2` | Extra damage as a share of Holy spell power. |
+| `ForeverPaladin.HolyStrike.WeaponPercent` | `40` | Percent of weapon damage. |
+| `ForeverPaladin.HolyStrike.DamagePerLevel` | `1.8` | Flat damage per paladin level. |
+| `ForeverPaladin.HolyStrike.AttackPowerCoefficient` | `0` | Extra damage as a share of attack power. |
+| `ForeverPaladin.HolyStrike.SpellPowerCoefficient` | `0.429` | Extra damage as a share of Holy spell power. |
 | `ForeverPaladin.HolyStrike.ManaCostPercent` | `5` | Mana cost as a whole percentage of base mana. `0` keeps the flat 75. |
 | `ForeverPaladin.ShieldMana.Enable` | `1` | Master switch for the mana return on block. |
 | `ForeverPaladin.ShieldMana.ChanceRank1` / `2` / `3` | `33` / `66` / `100` | Chance in percent with 1, 2 or 3 points in Redoubt. |
 | `ForeverPaladin.ShieldMana.BaseManaPercent` | `6` | Mana returned, as a percentage of base mana. |
 | `ForeverPaladin.ShieldMana.Cooldown` | `3000` | Minimum milliseconds between two mana returns. |
+| `ForeverPaladin.SealOfFury.Enable` | `1` | Master switch. With `0`, paladins lose Seal of Fury at their next login. |
+| `ForeverPaladin.SealOfFury.Level` | `10` | Level at which paladins learn it. |
+| `ForeverPaladin.SealOfFury.AttackPowerCoefficient` / `SpellPowerCoefficient` | `0.022` / `0.044` | Holy damage per hit, per second of weapon speed. |
+| `ForeverPaladin.SealOfFury.WardPercent` | `50` | Fury Ward's share of that Holy damage. `0` for no ward. |
+| `ForeverPaladin.Blessings.Duration` | `3600000` | Blessing duration in milliseconds. `0` keeps 10 / 30 minutes. |
+| `ForeverPaladin.Judgements.Duration` | `40000` | Judgement debuff duration in milliseconds. `0` keeps 20 seconds. |
+| `ForeverPaladin.Glyphs.BlessingCostReduction` | `50` | Might and Wisdom glyph cost cut in percent. `0` keeps the old +20 minutes. |
 
-If you change the cooldown, mana cost or damage settings and use the client patch, change the
-matching values at the top of `tools/patch-forever-paladin-dbc.sh` and rebuild the patch.
+Durations must exist in the client's SpellDuration.dbc (1 hour and 40 seconds do); the server
+logs an error and keeps the stock duration otherwise.
+
+If you change a setting the tooltips mention and use the client patch, change the matching
+value at the top of `tools/build_patch.py` and rebuild the patch.
 
 ## Turning it off
 
@@ -98,49 +169,50 @@ matching values at the top of `tools/patch-forever-paladin-dbc.sh` and rebuild t
   log in. Then stop the worldserver, delete the module, rebuild, and run both uninstall files:
 
   - `data/sql/uninstall/mod_forever_paladin_uninstall_world.sql` on the world database removes
-    the script binding.
+    the script bindings and Seal of Fury's spells.
   - `data/sql/uninstall/mod_forever_paladin_uninstall_characters.sql` on the characters database
-    takes Holy Strike off every character, their action bars and saved cooldowns. Without it,
-    paladins who didn't log in keep the unscripted NPC version of the spell.
+    takes Holy Strike and Seal of Fury off every character, their action bars, saved cooldowns
+    and auras. Without it, paladins who didn't log in keep the unscripted NPC version of Holy
+    Strike.
 
-  If you shipped the optional client patch, take its Holy Strike changes out of the client patch
-  too, or the tooltip and spellbook entry stay.
+  If you shipped the client patch, take the module's changes out of it too, or the tooltips and
+  spellbook entries stay.
 
 AzerothCore never runs the `uninstall` folder by itself; it only runs the module's `db-world`
 folder.
 
-## Optional client patch
+## Client patch
 
-Without it, players see the old NPC tooltip ("Consecrates the caster's weapon..."), a flat
-75 Mana and no cooldown, and Holy Strike sits in the General tab of the spellbook. It still works
-the same.
+Holy Strike and Seal of Fury need it. For the rest it's optional: without it, blessing,
+Judgement and glyph tooltips show the old durations and text, but work the same.
 
-`tools/patch-forever-paladin-dbc.sh` changes two client files:
+`tools/build_patch.py` changes two client files:
 
-- **Spell.dbc:** a tooltip that describes the real damage, the 5% of base mana cost and the
-  12 sec cooldown. Only Holy Strike's record changes.
-- **SkillLineAbility.dbc:** adds Holy Strike to the Holy tab of the spellbook.
+- **Spell.dbc:** Holy Strike made instant, with its tooltip, cooldown and cost; Seal of Fury's
+  four new spells;
+  blessing and Judgement durations (for the tooltips); the two glyph tooltips.
+- **SkillLineAbility.dbc:** Holy Strike in the Holy tab and Seal of Fury in the Protection tab.
+
+Only the newest client patch's Spell.dbc is used, so start from the patch that already ships one
+(patch-P on this realm) and the script keeps its other changes:
 
 ```bash
-tools/patch-forever-paladin-dbc.sh <Spell.dbc> <SkillLineAbility.dbc> DBFilesClient
+tools/build_patch.py --from-mpq patch-P.MPQ --out patch-P.MPQ.new
+tools/build_patch.py --dbc Spell.dbc --sla SkillLineAbility.dbc --out-dir DBFilesClient
+tools/build_patch.py --sql --dbc Spell.dbc   # the spell_dbc rows in data/sql
 ```
 
-Only the newest client patch's Spell.dbc is used, so if another patch already ships one (for
-example with mod-profession-craft-cd and mod-hearthstone-cd changes), give the script that
-Spell.dbc and put the result back in that same patch. The script only touches Holy Strike, and it
-can be run again on its own output. Take SkillLineAbility.dbc from the AzerothCore data folder
-(`dbc/SkillLineAbility.dbc`), which matches the client's.
-
-Pack both files into the MPQ as `DBFilesClient\Spell.dbc` and
-`DBFilesClient\SkillLineAbility.dbc`. Players who get the new patch should delete their `Cache/`
-folder.
+It needs StormLib for the MPQ (`STORMLIB` if it isn't `/usr/local/lib/libstorm.dylib`). Running it
+again on its own output gives the same result. Players who get the new patch should delete their
+`Cache/` folder.
 
 ## Limits
 
-- Without the client patch, the client greys the button out below 75 mana even when Holy Strike
-  costs less, and above level 60, where it costs more than 75, the button can look ready when you
-  can't afford it ("Not enough mana").
-- Playerbots paladins learn it but don't press it. Their strategies would need a Holy Strike
-  action.
+- Without the client patch, Holy Strike's button acts as a next-swing attack and shows the old
+  NPC tooltip, a flat 75 mana and no cooldown.
+- Playerbots paladins learn Holy Strike and Seal of Fury but don't use them. Their strategies
+  would need actions for them.
+- Changing `SealOfFury` or `Glyphs` settings and reloading the config affects auras cast after
+  the reload; glyphs change at the next login.
 - WoW Forever's per-spec Holy Strike talents aren't included: changing talent trees needs a bigger
   client patch.
