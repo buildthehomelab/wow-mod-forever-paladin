@@ -9,8 +9,9 @@ paladin changes to a 3.3.5 server:
 - **1 hour Blessings** and **40 second Judgements**, with the Blessing of Might and Wisdom glyphs
   reworked to match.
 
-Holy Strike, the mana return and the durations work without a client patch; the optional patch
-updates their tooltips. Seal of Fury is four new spells, so players need the patch for it.
+Players need the client patch for Holy Strike (it's instant, and the stock client thinks it's a
+next-swing attack) and Seal of Fury (four new spells). The mana return and the durations work
+without it; the patch only updates their tooltips.
 
 Some of WoW Forever's paladin changes are already how 3.3.5 works, so the module leaves them
 alone: Judgement doesn't use up the seal, Blessing of Kings is trained (level 20), and the Fire,
@@ -19,10 +20,12 @@ Frost and Shadow Resistance Auras already reach the whole raid.
 ## Holy Strike
 
 - Paladins learn **Holy Strike** at level 6. Existing paladins get it at their next login.
-- It's a **next-swing attack**, like Heroic Strike: press it and your next melee swing deals
-  Holy damage instead of a normal hit. Holy damage ignores armor.
-- That swing does your weapon damage, the spell's small built-in bonus, and **20% of your attack
-  power plus 20% of your Holy spell power** on top.
+- It's an **instant strike** on the global cooldown, like Crusader Strike. All its damage is
+  Holy, so it ignores armor.
+- It deals WoW Forever's damage: **40% of weapon damage + 1.8 per level + 42.9% of your Holy
+  spell power**. Forever gives 108 flat at level 60 (12 at rank 1, level 6); 1.8 per level
+  matches both and makes it 144 at 80. With a 1293 weapon hit and 1200 spell power at level 80,
+  that's about 1140; with 343 and 300 at level 60, about 374.
 - Then it goes on a **12 second cooldown**, which shows on the action bar.
 - It costs **5% of base mana**, like Crusader Strike: about 6 mana at level 6, 75 at 60 and 220
   at 80.
@@ -99,16 +102,17 @@ The server changes all of this when it starts; players see the right durations o
 with or without the patch. The patch updates the tooltips ("Lasts 60 min", "40 sec", the glyph
 text). Blessings cast before the change keep the duration they were cast with.
 
-## Why a next-swing attack and not an instant strike
+## Where Holy Strike comes from
 
 The spell is Holy Strike (13953), which the 3.3.5 client already has. Blizzard only ever gave it to
 NPCs, like the Scarlet Crusade. No item, trainer or talent teaches it to players, so reusing it
 changes nothing players could already get, and every client already has its name and icon.
 
-The client knows it as a next-swing attack, so that's how it works here. Making it instant, like
-in WoW Forever, would mean every player needs the client patch, or their button misbehaves.
+The game data makes it a next-swing attack, like Heroic Strike. The module makes it instant on
+the server, and the client patch does the same for the client; a client without the patch
+treats the button as a next-swing attack, so it misbehaves.
 
-NPCs that cast Holy Strike are unchanged: same damage, same cooldown, same 75 mana.
+NPCs that cast Holy Strike keep their damage, cooldown and 75 mana; they strike instantly too.
 
 ## Install
 
@@ -131,8 +135,10 @@ start.
 | `ForeverPaladin.HolyStrike.Enable` | `1` | Master switch. With `0`, paladins lose Holy Strike at their next login. |
 | `ForeverPaladin.HolyStrike.Level` | `6` | Level at which paladins learn it. |
 | `ForeverPaladin.HolyStrike.Cooldown` | `12000` | Cooldown in milliseconds. `0` for none. |
-| `ForeverPaladin.HolyStrike.AttackPowerCoefficient` | `0.2` | Extra damage as a share of attack power. |
-| `ForeverPaladin.HolyStrike.SpellPowerCoefficient` | `0.2` | Extra damage as a share of Holy spell power. |
+| `ForeverPaladin.HolyStrike.WeaponPercent` | `40` | Percent of weapon damage. |
+| `ForeverPaladin.HolyStrike.DamagePerLevel` | `1.8` | Flat damage per paladin level. |
+| `ForeverPaladin.HolyStrike.AttackPowerCoefficient` | `0` | Extra damage as a share of attack power. |
+| `ForeverPaladin.HolyStrike.SpellPowerCoefficient` | `0.429` | Extra damage as a share of Holy spell power. |
 | `ForeverPaladin.HolyStrike.ManaCostPercent` | `5` | Mana cost as a whole percentage of base mana. `0` keeps the flat 75. |
 | `ForeverPaladin.ShieldMana.Enable` | `1` | Master switch for the mana return on block. |
 | `ForeverPaladin.ShieldMana.ChanceRank1` / `2` / `3` | `33` / `66` / `100` | Chance in percent with 1, 2 or 3 points in Redoubt. |
@@ -177,14 +183,13 @@ folder.
 
 ## Client patch
 
-Seal of Fury needs it. For everything else it's optional: without it, Holy Strike shows the old
-NPC tooltip ("Consecrates the caster's weapon..."), a flat 75 Mana and no cooldown and sits in the
-General tab, and blessing, Judgement and glyph tooltips show the old durations and text. All of
-that still works the same.
+Holy Strike and Seal of Fury need it. For the rest it's optional: without it, blessing,
+Judgement and glyph tooltips show the old durations and text, but work the same.
 
 `tools/build_patch.py` changes two client files:
 
-- **Spell.dbc:** Holy Strike's tooltip, cooldown and cost; Seal of Fury's four new spells;
+- **Spell.dbc:** Holy Strike made instant, with its tooltip, cooldown and cost; Seal of Fury's
+  four new spells;
   blessing and Judgement durations (for the tooltips); the two glyph tooltips.
 - **SkillLineAbility.dbc:** Holy Strike in the Holy tab and Seal of Fury in the Protection tab.
 
@@ -203,9 +208,8 @@ again on its own output gives the same result. Players who get the new patch sho
 
 ## Limits
 
-- Without the client patch, the client greys the button out below 75 mana even when Holy Strike
-  costs less, and above level 60, where it costs more than 75, the button can look ready when you
-  can't afford it ("Not enough mana").
+- Without the client patch, Holy Strike's button acts as a next-swing attack and shows the old
+  NPC tooltip, a flat 75 mana and no cooldown.
 - Playerbots paladins learn Holy Strike and Seal of Fury but don't use them. Their strategies
   would need actions for them.
 - Changing `SealOfFury` or `Glyphs` settings and reloading the config affects auras cast after

@@ -15,8 +15,9 @@ server). Start from that patch so its other spell changes are kept:
 
 What it changes:
 
-- Holy Strike (13953): 12 sec cooldown, 5% of base mana, a tooltip that says what it does, and
-  a place in the Holy tab of the spellbook.
+- Holy Strike (13953): an instant strike on the global cooldown instead of a next-swing attack
+  (the server makes the same change), 12 sec cooldown, 5% of base mana, a tooltip that says what
+  it does, and a place in the Holy tab of the spellbook.
 - Seal of Fury: four new spells. 90080 is the seal (a copy of Seal of Righteousness, 21084),
   90081 Judgement of Fury (a copy of Judgement, 54158, that also taunts for 4 sec), 90082 its
   Holy damage on melee hits (a copy of 25742) and 90083 Fury Ward, the absorb (a copy of Sacred
@@ -48,8 +49,9 @@ import tempfile
 SPELL_HOLY_STRIKE = 13953
 HOLY_STRIKE_COOLDOWN_MS = 12000
 HOLY_STRIKE_MANA_COST_PERCENT = 5
-HOLY_STRIKE_AP_PERCENT = 20
-HOLY_STRIKE_SP_PERCENT = 20
+HOLY_STRIKE_WEAPON = 0.4
+HOLY_STRIKE_PER_LEVEL = 1.8
+HOLY_STRIKE_SP = 0.429
 
 SPELL_SEAL_OF_FURY = 90080
 SPELL_JUDGEMENT_OF_FURY = 90081
@@ -95,6 +97,8 @@ GLYPHS = {
 FIELDS = 234
 F_ID = 0
 F_ATTRIBUTES = 4
+SPELL_ATTR0_ON_NEXT_SWING_NO_DAMAGE = 0x4
+SPELL_ATTR0_ON_NEXT_SWING = 0x400
 F_RECOVERY_TIME = 29
 F_PROC_FLAGS = 34
 F_PROC_CHANCE = 35
@@ -120,6 +124,10 @@ F_NAME_SUBTEXT = 153
 F_DESCRIPTION = 170
 F_AURA_DESCRIPTION = 187
 F_MANA_COST_PCT = 204
+F_START_RECOVERY_CATEGORY = 205
+F_START_RECOVERY_TIME = 206
+GCD_CATEGORY = 133             # the normal global cooldown, as on Crusader Strike
+GCD_TIME = 1500
 F_FAMILY_FLAGS = 209      # 3 words
 F_EFFECT_BONUS = 229      # 3 floats
 
@@ -154,9 +162,10 @@ SOF_JUDGEMENT = "${1+0.2*$AP+0.32*$SPH}"
 
 TEXTS = {
     SPELL_HOLY_STRIKE: (None,
-        "Your next melee attack deals Holy damage equal to your weapon damage plus "
-        f"{HOLY_STRIKE_AP_PERCENT}% of your attack power and {HOLY_STRIKE_SP_PERCENT}% of your "
-        "spell power.", None),
+        "An instant strike that deals "
+        f"${{{HOLY_STRIKE_WEAPON}*$mw+{HOLY_STRIKE_PER_LEVEL}*$PL+{HOLY_STRIKE_SP}*$SPH}} to "
+        f"${{{HOLY_STRIKE_WEAPON}*$MW+{HOLY_STRIKE_PER_LEVEL}*$PL+{HOLY_STRIKE_SP}*$SPH}} Holy damage.",
+        None),
     SPELL_SEAL_OF_FURY: ("Seal of Fury",
         f"Fills the Paladin with holy fury for $d, granting each melee attack {SOF_HIT} additional "
         f"Holy damage. While a shield is equipped, each of these hits also grants a Fury Ward that "
@@ -314,6 +323,9 @@ def patch_spell_dbc(src, dst):
     by_id = {r[F_ID]: r for r in rows}
 
     holy_strike = find(rows, SPELL_HOLY_STRIKE)
+    holy_strike[F_ATTRIBUTES] &= ~(SPELL_ATTR0_ON_NEXT_SWING | SPELL_ATTR0_ON_NEXT_SWING_NO_DAMAGE)
+    holy_strike[F_START_RECOVERY_CATEGORY] = GCD_CATEGORY
+    holy_strike[F_START_RECOVERY_TIME] = GCD_TIME
     holy_strike[F_RECOVERY_TIME] = HOLY_STRIKE_COOLDOWN_MS
     holy_strike[F_MANA_COST] = 0
     holy_strike[F_MANA_COST_PCT] = HOLY_STRIKE_MANA_COST_PERCENT
@@ -334,7 +346,7 @@ def patch_spell_dbc(src, dst):
         set_texts(find(rows, glyph_id), strings)
 
     write_dbc(dst, rows, strings, FIELDS)
-    print(f"{dst}: Holy Strike, Seal of Fury ({', '.join(str(s[F_ID]) for s in added)}), "
+    print(f"{dst}: Holy Strike (instant), Seal of Fury ({', '.join(str(s[F_ID]) for s in added)}), "
           f"{len(BLESSINGS)} blessings at 1 hour, {len(JUDGEMENT_DEBUFFS)} Judgement debuffs at 40 sec, "
           f"{len(GLYPHS)} glyph tooltips")
 

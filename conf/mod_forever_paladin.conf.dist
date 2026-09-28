@@ -3,8 +3,9 @@
 ########################################
 # mod-forever-paladin
 #
-# Every paladin learns Holy Strike, whatever their spec, as in WoW Forever. Their next melee
-# swing deals Holy damage plus a bonus, then Holy Strike goes on cooldown. No client patch.
+# Every paladin learns Holy Strike, whatever their spec, as in WoW Forever: an instant Holy
+# weapon strike on the global cooldown, like Crusader Strike. Players need the client patch
+# (tools/build_patch.py); without it their client treats the button as a next-swing attack.
 ########################################
 
 #
@@ -35,16 +36,24 @@ ForeverPaladin.HolyStrike.Level = 6
 ForeverPaladin.HolyStrike.Cooldown = 12000
 
 #
+#    ForeverPaladin.HolyStrike.WeaponPercent
+#    ForeverPaladin.HolyStrike.DamagePerLevel
 #    ForeverPaladin.HolyStrike.AttackPowerCoefficient
 #    ForeverPaladin.HolyStrike.SpellPowerCoefficient
-#        Description: Extra Holy damage on top of the weapon hit, as a share of the paladin's
-#                     attack power and Holy spell power. With both at 0.2, a paladin with 5000
-#                     attack power and 1500 spell power adds 1300.
-#        Default:     0.2
+#        Description: Holy Strike's damage, all Holy: this percent of a weapon hit, plus
+#                     DamagePerLevel x the paladin's level, plus shares of attack power and Holy
+#                     spell power. The defaults are WoW Forever's at level 60 (40% of weapon
+#                     damage + 108 + 42.9% of spell power), with the flat part spread over the
+#                     levels (Forever's rank 1 at level 6 adds 12): 144 at level 80. A level 80
+#                     paladin with a 1293 weapon hit and 1200 spell power hits for about 1140.
+#                     The client patch's tooltip uses the defaults.
+#        Default:     40, 1.8, 0, 0.429
 #
 
-ForeverPaladin.HolyStrike.AttackPowerCoefficient = 0.2
-ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.2
+ForeverPaladin.HolyStrike.WeaponPercent = 40
+ForeverPaladin.HolyStrike.DamagePerLevel = 1.8
+ForeverPaladin.HolyStrike.AttackPowerCoefficient = 0
+ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.429
 
 #
 #    ForeverPaladin.HolyStrike.ManaCostPercent

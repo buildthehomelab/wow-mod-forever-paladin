@@ -1,18 +1,19 @@
 /*
  * mod-forever-paladin
  *
- * Every paladin learns Holy Strike at level 6, whatever their spec, as in WoW Forever. It's a
- * next-swing attack: the paladin's next melee swing deals Holy damage plus a bonus from attack
- * power and spell power, then the ability goes on a 12 second cooldown. Like Crusader Strike, it
- * costs 5% of base mana.
+ * Every paladin learns Holy Strike at level 6, whatever their spec, as in WoW Forever. It's an
+ * instant weapon strike on the global cooldown, like Crusader Strike: 40% of weapon damage plus
+ * 1.8 per level plus 42.9% of Holy spell power, all Holy damage, then a 12 second cooldown. Like
+ * Crusader Strike, it costs 5% of base mana.
  *
  * The spell is Holy Strike (13953), a spell the 3.3.5 client already has: Blizzard only ever gave
- * it to NPCs (Scarlet Crusade and others), and no item, trainer or talent teaches it. So it works
- * without a client patch. The client shows it as a next-swing attack, like Heroic Strike, so
- * that's how it works here too. tools/build_patch.py makes an optional client patch
- * that updates its tooltip and puts it in the Holy tab of the spellbook.
+ * it to NPCs (Scarlet Crusade and others), and no item, trainer or talent teaches it. The game
+ * data makes it a next-swing attack; the module makes it instant, so players need the client
+ * patch (tools/build_patch.py), which does the same, gives it a tooltip that says what it does and
+ * puts it in the Holy tab of the spellbook. Without the patch the client treats the button as a
+ * next-swing attack.
  *
- * NPCs that cast Holy Strike keep their damage, cooldown and cost.
+ * NPCs that cast Holy Strike keep their damage, cooldown and cost; they strike instantly too.
  *
  * Shield Specialization's mana return: in WoW Forever that talent also gives blocks a 33% chance
  * to restore 6% of maximum mana, at most once every 3 seconds. Here it's 6% of base mana, so
@@ -106,8 +107,10 @@ namespace
         bool enabled = true;
         uint8 level = 6;
         uint32 cooldown = 12000;
-        float attackPowerCoefficient = 0.2f;
-        float spellPowerCoefficient = 0.2f;
+        float weaponPercent = 40.0f;
+        float damagePerLevel = 1.8f;
+        float attackPowerCoefficient = 0.0f;
+        float spellPowerCoefficient = 0.429f;
         uint32 manaCostPercent = 5;
 
         bool shieldManaEnabled = true;
@@ -157,6 +160,20 @@ namespace
             spellInfo->ManaCost = flatManaCost;
             spellInfo->ManaCostPercentage = 0;
         }
+    }
+
+    // Make Holy Strike an instant strike on the global cooldown, like Crusader Strike, instead of
+    // a next-swing attack. The client patch makes the same change. This runs after the core's
+    // spell_cooldown_overrides row for 13953 (which sets no global cooldown), so it wins.
+    void ApplyInstant()
+    {
+        SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(SPELL_HOLY_STRIKE));
+        if (!spellInfo)
+            return;
+
+        spellInfo->Attributes &= ~(SPELL_ATTR0_ON_NEXT_SWING | SPELL_ATTR0_ON_NEXT_SWING_NO_DAMAGE);
+        spellInfo->StartRecoveryCategory = 133; // the global cooldown, as on Crusader Strike
+        spellInfo->StartRecoveryTime = 1500;
     }
 
     // The 3 second limit is the proc cooldown in the SQL's spell_proc row. The core only starts
@@ -341,20 +358,23 @@ class spell_holy_strike : public SpellScript
             npc->ModifyPower(POWER_MANA, GetSpell()->GetPowerCost() - int32(flatManaCost));
     }
 
-    // The game data only adds a small bonus to the weapon hit (about 220 at level 80), which
-    // would make a 12 second cooldown pointless. Add a share of attack power and Holy spell power
-    // on top. This runs before crits and resistances are worked out, so the bonus crits too.
-    void AddBonusDamage()
+    // WoW Forever's Holy Strike: a share of weapon damage plus a flat amount (12 at rank 1,
+    // 108 at level 60; here 1.8 per level, so 144 at 80) plus 42.9% of spell power. The game data
+    // hits for full weapon damage, so scale that down and add the rest. This runs before crits
+    // and resistances are worked out, so the whole hit can crit.
+    void SetDamage()
     {
         Player* player = GetPlayerCaster();
         if (!player || GetHitDamage() <= 0)
             return;
 
+        float const weapon = CalculatePct(float(GetHitDamage()), config.weaponPercent);
         float const attackPower = player->GetTotalAttackPowerValue(BASE_ATTACK);
         float const spellPower = float(player->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_HOLY));
-        int32 const bonus = int32(attackPower * config.attackPowerCoefficient + spellPower * config.spellPowerCoefficient);
+        float const bonus = player->GetLevel() * config.damagePerLevel
+            + attackPower * config.attackPowerCoefficient + spellPower * config.spellPowerCoefficient;
 
-        SetHitDamage(GetHitDamage() + bonus);
+        SetHitDamage(std::max<int32>(1, int32(weapon + bonus)));
     }
 
     // The stock client's Spell.dbc has no cooldown for Holy Strike, and the core's own override
@@ -386,7 +406,7 @@ class spell_holy_strike : public SpellScript
     void Register() override
     {
         OnCheckCast += SpellCheckCastFn(spell_holy_strike::CheckNpcManaCost);
-        OnHit += SpellHitFn(spell_holy_strike::AddBonusDamage);
+        OnHit += SpellHitFn(spell_holy_strike::SetDamage);
         AfterCast += SpellCastFn(spell_holy_strike::TakeNpcManaCost);
         AfterCast += SpellCastFn(spell_holy_strike::StartCooldown);
     }
@@ -548,8 +568,10 @@ public:
         config.enabled                = sConfigMgr->GetOption<bool>("ForeverPaladin.HolyStrike.Enable", true);
         config.level                  = uint8(sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.Level", 6));
         config.cooldown               = sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.Cooldown", 12000);
-        config.attackPowerCoefficient = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.AttackPowerCoefficient", 0.2f);
-        config.spellPowerCoefficient  = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.SpellPowerCoefficient", 0.2f);
+        config.weaponPercent          = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.WeaponPercent", 40.0f);
+        config.damagePerLevel         = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.DamagePerLevel", 1.8f);
+        config.attackPowerCoefficient = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.AttackPowerCoefficient", 0.0f);
+        config.spellPowerCoefficient  = sConfigMgr->GetOption<float>("ForeverPaladin.HolyStrike.SpellPowerCoefficient", 0.429f);
         config.manaCostPercent        = sConfigMgr->GetOption<uint32>("ForeverPaladin.HolyStrike.ManaCostPercent", 5);
 
         config.shieldManaEnabled      = sConfigMgr->GetOption<bool>("ForeverPaladin.ShieldMana.Enable", true);
@@ -582,6 +604,7 @@ private:
     static void ApplySpellChanges()
     {
         ApplyManaCost();
+        ApplyInstant();
         ApplyShieldManaCooldown();
         ApplyDurations();
         ApplyGlyphs();
