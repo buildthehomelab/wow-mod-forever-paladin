@@ -52,7 +52,7 @@ ForeverPaladin.HolyStrike.SpellPowerCoefficient = 0.2
 #                     That's about 6 mana at level 6, 75 at 60 and 220 at 80. 0 keeps the game
 #                     data's flat 75. NPCs always pay 75. Without the optional client patch the
 #                     tooltip says 75 Mana whatever this is set to; with it, the patch must use
-#                     the same value (see tools/patch-forever-paladin-dbc.sh).
+#                     the same value (see tools/build_patch.py).
 #        Default:     5
 #
 
@@ -105,3 +105,95 @@ ForeverPaladin.ShieldMana.BaseManaPercent = 6
 #
 
 ForeverPaladin.ShieldMana.Cooldown = 3000
+
+########################################
+# Seal of Fury
+#
+# WoW Forever's tanking seal. Each melee hit deals extra Holy damage, like Seal of Righteousness;
+# with a shield equipped it also grants Fury Ward, a small absorb. Judging it (Judgement of Fury)
+# deals Holy damage and taunts the target for 4 seconds. Four new spells (90080-90083): players
+# need patch-P with them (tools/build_patch.py), or the spell, its buff and its combat log lines
+# are unknown to their client.
+########################################
+
+#
+#    ForeverPaladin.SealOfFury.Enable
+#        Description: Master switch. With 0, paladins who learned Seal of Fury lose it at their
+#                     next login.
+#        Default:     1
+#
+
+ForeverPaladin.SealOfFury.Enable = 1
+
+#
+#    ForeverPaladin.SealOfFury.Level
+#        Description: Level at which paladins learn Seal of Fury. The client patch's tooltip
+#                     doesn't show the level, so this needs no patch change.
+#        Default:     10
+#
+
+ForeverPaladin.SealOfFury.Level = 10
+
+#
+#    ForeverPaladin.SealOfFury.AttackPowerCoefficient
+#    ForeverPaladin.SealOfFury.SpellPowerCoefficient
+#        Description: Holy damage per melee hit, per second of weapon speed, as a share of
+#                     attack power and Holy spell power. The defaults are Seal of
+#                     Righteousness': a 2.6 speed weapon with 4000 attack power and 1200 spell
+#                     power adds 366 per hit. The client patch's tooltip uses the defaults.
+#        Default:     0.022, 0.044
+#
+
+ForeverPaladin.SealOfFury.AttackPowerCoefficient = 0.022
+ForeverPaladin.SealOfFury.SpellPowerCoefficient = 0.044
+
+#
+#    ForeverPaladin.SealOfFury.WardPercent
+#        Description: Fury Ward absorbs this share of the Holy damage the hit really did. Only
+#                     with a shield equipped. Wards don't stack: a bigger one replaces the
+#                     current one, and every hit keeps it up for 10 more seconds. 0 for none.
+#        Default:     50
+#
+
+ForeverPaladin.SealOfFury.WardPercent = 50
+
+########################################
+# Blessings, Judgements and glyphs
+#
+# As in WoW Forever, Blessings last 1 hour and Judgement debuffs 40 seconds. The glyphs that made
+# Blessing of Might and Blessing of Wisdom last 20 minutes longer on yourself make them cheaper
+# instead. All of it is server-side; patch-P only updates the tooltips.
+########################################
+
+#
+#    ForeverPaladin.Blessings.Duration
+#        Description: Duration in milliseconds of every Blessing and Greater Blessing (Might,
+#                     Wisdom, Kings, Sanctuary). It must be a duration the client's
+#                     SpellDuration.dbc has; 3600000 (1 hour) is. 0 keeps 10 minutes for
+#                     Blessings and 30 for Greater Blessings.
+#        Default:     3600000
+#
+
+ForeverPaladin.Blessings.Duration = 3600000
+
+#
+#    ForeverPaladin.Judgements.Duration
+#        Description: Duration in milliseconds of the Judgement of Light, Judgement of Wisdom,
+#                     Heart of the Crusader and Judgements of the Just debuffs. Judgement of
+#                     Justice keeps 20 seconds. Must be in SpellDuration.dbc; 40000 is. 0 keeps
+#                     20 seconds.
+#        Default:     40000
+#
+
+ForeverPaladin.Judgements.Duration = 40000
+
+#
+#    ForeverPaladin.Glyphs.BlessingCostReduction
+#        Description: Glyph of Blessing of Might and Glyph of Blessing of Wisdom make their
+#                     Blessing and Greater Blessing this many percent cheaper, like Glyph of
+#                     Blessing of Kings, instead of 20 minutes longer on yourself. 0 keeps the
+#                     old 20 minutes. The client patch's tooltips say 50%.
+#        Default:     50
+#
+
+ForeverPaladin.Glyphs.BlessingCostReduction = 50
