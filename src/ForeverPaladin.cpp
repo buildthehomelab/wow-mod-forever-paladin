@@ -33,9 +33,9 @@
  * Glyph of Seal of Fury, a major glyph like Glyph of Seal of Command: each Judgement you use with
  * Seal of Fury active returns 8% of your base mana. Scribes make it with the same recipe, trainer
  * and materials as Glyph of Seal of Command. The glyph (90084), its item's spell (90085), the
- * recipe (90086) and the glyph item (37550, Blizzard's unused "Deprecated Test Glyph 2") come from
- * the SQL, and for the client from patch-P, which also carries its GlyphProperties.dbc and
- * Item.dbc rows.
+ * recipe (90086), the mana (90087) and the glyph item (37550, Blizzard's unused "Deprecated Test
+ * Glyph 2") come from the SQL, and for the client from patch-P, which also carries its
+ * GlyphProperties.dbc and Item.dbc rows.
  *
  * Blessings and Judgements, as in WoW Forever: Blessings and Greater Blessings last 1 hour, and
  * Judgement debuffs last 40 seconds, except Judgement of Justice. The server changes the spells'
@@ -76,6 +76,9 @@ namespace
     constexpr uint32 SPELL_SEAL_OF_FURY_DAMAGE = 90082;
     constexpr uint32 SPELL_FURY_WARD = 90083;
     constexpr uint32 SPELL_GLYPH_OF_SEAL_OF_FURY = 90084;
+    // The glyph's mana, like 68082 for Glyph of Seal of Command. The glyph aura is hidden, so the
+    // client leaves mana credited to it out of the combat log; this one shows.
+    constexpr uint32 SPELL_GLYPH_OF_SEAL_OF_FURY_MANA = 90087;
 
     // First ranks; the later ranks are found through the spell chains.
     constexpr std::array<uint32, 8> SPELL_BLESSINGS = {
@@ -536,7 +539,7 @@ class spell_pal_forever_judgement_of_fury : public SpellScript
 
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
-        return ValidateSpellInfo({ SPELL_GLYPH_OF_SEAL_OF_FURY });
+        return ValidateSpellInfo({ SPELL_GLYPH_OF_SEAL_OF_FURY, SPELL_GLYPH_OF_SEAL_OF_FURY_MANA });
     }
 
     // Shows in the combat log as "You gain 121 Mana from Glyph of Seal of Fury."
@@ -548,7 +551,7 @@ class spell_pal_forever_judgement_of_fury : public SpellScript
 
         uint32 const mana = uint32(std::lround(caster->GetCreateMana() * config.glyphManaPercent / 100.0f));
         if (mana)
-            caster->EnergizeBySpell(caster, SPELL_GLYPH_OF_SEAL_OF_FURY, mana, POWER_MANA);
+            caster->EnergizeBySpell(caster, SPELL_GLYPH_OF_SEAL_OF_FURY_MANA, mana, POWER_MANA);
     }
 
     void Register() override

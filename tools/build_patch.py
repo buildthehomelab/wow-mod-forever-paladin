@@ -32,7 +32,8 @@ What it changes:
   of 20 more minutes on yourself).
 - Glyph of Seal of Fury: 90084 is the glyph (a copy of Glyph of Seal of Command, 54925, as a
   plain dummy aura; the server does the work), 90085 the glyph item's spell (a copy of 55109) and
-  90086 the Inscription recipe (a copy of 57033). GlyphProperties.dbc gets glyph 912, a major
+  90086 the Inscription recipe (a copy of 57033) and 90087 its mana, the spell the combat log
+  names (a copy of 68082, which does that for Glyph of Seal of Command). GlyphProperties.dbc gets glyph 912, a major
   glyph, and SkillLineAbility.dbc puts the recipe in Inscription. The item is 37550, Blizzard's
   unused "Deprecated Test Glyph 2"; its Item.dbc row becomes a paladin glyph with Glyph of Seal
   of Command's icon.
@@ -73,6 +74,7 @@ TAUNT_SECONDS = 4
 SPELL_GLYPH_OF_SEAL_OF_FURY = 90084
 SPELL_GLYPH_OF_SEAL_OF_FURY_ITEM = 90085
 SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE = 90086
+SPELL_GLYPH_OF_SEAL_OF_FURY_MANA = 90087
 GLYPH_OF_SEAL_OF_FURY = 912            # GlyphProperties.dbc row
 ITEM_GLYPH_OF_SEAL_OF_FURY = 37550     # "Deprecated Test Glyph 2", unobtainable
 GLYPH_MANA_PERCENT = 8
@@ -81,6 +83,7 @@ GLYPH_MANA_PERCENT = 8
 SPELL_GLYPH_OF_SEAL_OF_COMMAND = 54925
 SPELL_GLYPH_OF_SEAL_OF_COMMAND_ITEM = 55109
 SPELL_GLYPH_OF_SEAL_OF_COMMAND_RECIPE = 57033
+SPELL_GLYPH_OF_SEAL_OF_COMMAND_MANA = 68082
 ITEM_GLYPH_OF_SEAL_OF_COMMAND = 41094
 GLYPH_OF_SEAL_OF_COMMAND = 184
 
@@ -218,6 +221,7 @@ TEXTS = {
         f"You gain {GLYPH_MANA_PERCENT}% of your base mana each time you use a Judgement with Seal of "
         "Fury active.", None),
     SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE: ("Glyph of Seal of Fury", None, None),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_MANA: ("Glyph of Seal of Fury", None, None),
     SPELL_FURY_WARD: ("Fury Ward",
         "Absorbs damage. Only the strongest Fury Ward counts; a new one replaces a weaker one.",
         "Absorbs damage."),
@@ -356,7 +360,13 @@ def new_spells(rows):
     recipe[F_ID] = SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE
     recipe[F_EFFECT_ITEM_TYPE] = ITEM_GLYPH_OF_SEAL_OF_FURY
 
-    return [seal, judgement, damage, ward, glyph, glyph_item, recipe]
+    # The glyph aura is hidden (like every glyph's), and the client leaves hidden spells out of the
+    # combat log, so the mana is credited to this visible copy of 68082 instead.
+    mana = list(find(rows, SPELL_GLYPH_OF_SEAL_OF_COMMAND_MANA))
+    mana[F_ID] = SPELL_GLYPH_OF_SEAL_OF_FURY_MANA
+    mana[F_EFFECT_BASE_POINTS] = GLYPH_MANA_PERCENT - 1            # only for the tooltip's $s1
+
+    return [seal, judgement, damage, ward, glyph, glyph_item, recipe, mana]
 
 
 def set_texts(row, strings):
