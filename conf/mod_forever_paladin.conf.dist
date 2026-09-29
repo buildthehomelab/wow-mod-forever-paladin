@@ -166,6 +166,16 @@ ForeverPaladin.SealOfFury.SpellPowerCoefficient = 0.044
 
 ForeverPaladin.SealOfFury.WardPercent = 50
 
+#
+#    ForeverPaladin.SealOfFury.GlyphManaPercent
+#        Description: With Glyph of Seal of Fury, each Judgement you use with Seal of Fury active
+#                     returns this share of your base mana, like Glyph of Seal of Command. 0 makes
+#                     the glyph do nothing. The client patch's tooltip says 8%.
+#        Default:     8
+#
+
+ForeverPaladin.SealOfFury.GlyphManaPercent = 8
+
 ########################################
 # Blessings, Judgements and glyphs
 #

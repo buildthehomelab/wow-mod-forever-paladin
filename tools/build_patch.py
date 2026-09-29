@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-mod-forever-paladin: write the module's client changes into a 3.3.5a (12340) client's Spell.dbc
-and SkillLineAbility.dbc, and pack them into an MPQ.
+mod-forever-paladin: write the module's client changes into a 3.3.5a (12340) client's Spell.dbc,
+SkillLineAbility.dbc, GlyphProperties.dbc and Item.dbc, and pack them into an MPQ.
 
 The 3.3.5 client only casts spells in its own Spell.dbc, and a patch MPQ replaces the whole file,
 so the changes have to go into the Spell.dbc your realm patch already ships (patch-P on this
 server). Start from that patch so its other spell changes are kept:
 
-    python3 build_patch.py --from-mpq patch-P.MPQ --out patch-P.MPQ.new
-    python3 build_patch.py --dbc Spell.dbc --sla SkillLineAbility.dbc --out-dir DBFilesClient
-    python3 build_patch.py --sql                     # print the server's spell_dbc SQL
+    python3 build_patch.py --from-mpq patch-P.MPQ --stock-dbc dbc --out patch-P.MPQ.new
+    python3 build_patch.py --dbc Spell.dbc --sla SkillLineAbility.dbc --glyph GlyphProperties.dbc \
+        --item Item.dbc --out-dir DBFilesClient
+    python3 build_patch.py --from-mpq patch-P.MPQ --sql [ID ...]   # the server's spell_dbc SQL
 
---sql reads the stock rows it copies from; give it --dbc or --from-mpq.
+--stock-dbc is a folder with the client's own GlyphProperties.dbc and Item.dbc (a client's
+DBFilesClient, or AzerothCore's data/dbc), for when the MPQ doesn't ship them yet. --sql reads the
+stock rows it copies from; give it --dbc or --from-mpq, and spell ids to print only those.
 
 What it changes:
 
@@ -27,6 +30,12 @@ What it changes:
   40 sec. Judgement of Justice keeps 20 sec.
 - Glyph of Blessing of Might and Glyph of Blessing of Wisdom: new tooltips (50% cheaper instead
   of 20 more minutes on yourself).
+- Glyph of Seal of Fury: 90084 is the glyph (a copy of Glyph of Seal of Command, 54925, as a
+  plain dummy aura; the server does the work), 90085 the glyph item's spell (a copy of 55109) and
+  90086 the Inscription recipe (a copy of 57033). GlyphProperties.dbc gets glyph 912, a major
+  glyph, and SkillLineAbility.dbc puts the recipe in Inscription. The item is 37550, Blizzard's
+  unused "Deprecated Test Glyph 2"; its Item.dbc row becomes a paladin glyph with Glyph of Seal
+  of Command's icon.
 
 The client only uses these for tooltips, the spellbook and the combat log; the server decides
 what the spells really do. Running it again gives the same result, so it's safe to rebuild.
@@ -60,6 +69,20 @@ SPELL_FURY_WARD = 90083
 SEAL_OF_FURY_LEVEL = 10
 FURY_WARD_PERCENT = 50
 TAUNT_SECONDS = 4
+
+SPELL_GLYPH_OF_SEAL_OF_FURY = 90084
+SPELL_GLYPH_OF_SEAL_OF_FURY_ITEM = 90085
+SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE = 90086
+GLYPH_OF_SEAL_OF_FURY = 912            # GlyphProperties.dbc row
+ITEM_GLYPH_OF_SEAL_OF_FURY = 37550     # "Deprecated Test Glyph 2", unobtainable
+GLYPH_MANA_PERCENT = 8
+
+# Glyph of Seal of Command: the glyph, its item's spell, the recipe, the item and its glyph row.
+SPELL_GLYPH_OF_SEAL_OF_COMMAND = 54925
+SPELL_GLYPH_OF_SEAL_OF_COMMAND_ITEM = 55109
+SPELL_GLYPH_OF_SEAL_OF_COMMAND_RECIPE = 57033
+ITEM_GLYPH_OF_SEAL_OF_COMMAND = 41094
+GLYPH_OF_SEAL_OF_COMMAND = 184
 
 GLYPH_COST_REDUCTION_PERCENT = 50
 
@@ -115,6 +138,7 @@ F_EFFECT_RADIUS = 92
 F_EFFECT_AURA = 95
 F_EFFECT_AMPLITUDE = 98
 F_EFFECT_MULTIPLE_VALUE = 101
+F_EFFECT_ITEM_TYPE = 107
 F_EFFECT_MISC_VALUE = 110
 F_EFFECT_TRIGGER_SPELL = 116
 F_EFFECT_CLASS_MASK = 122  # 3 words per effect
@@ -139,6 +163,7 @@ FLOAT_FIELDS = {47, 77, 78, 79, 101, 102, 103, 119, 120, 121, 216, 217, 218, 229
 
 SPELL_EFFECT_ATTACK_ME = 114
 SPELL_EFFECT_APPLY_AURA = 6
+SPELL_AURA_DUMMY = 4
 SPELL_AURA_MOD_TAUNT = 11
 TARGET_UNIT_CASTER = 1
 TARGET_UNIT_TARGET_ENEMY = 6
@@ -154,7 +179,13 @@ SLA_FIELDS = 14
 SKILL_HOLY = 594
 SKILL_PROTECTION = 267
 CLASS_MASK_PALADIN = 2
-SLA_SEAL_OF_FURY = 90080       # fixed row id, so rebuilding finds it again
+SLA_SEAL_OF_FURY = 90080       # fixed row ids, so rebuilding finds them again
+SLA_GLYPH_OF_SEAL_OF_FURY_RECIPE = 90086
+
+# --- GlyphProperties.dbc and Item.dbc --------------------------------------------------------
+GLYPH_FIELDS = 4               # ID, SpellID, GlyphSlotFlags, SpellIconID
+ITEM_FIELDS = 8                # ID, Class, Subclass, SoundOverrideSubclass, Material, DisplayInfoID,
+                               # InventoryType, SheatheType
 
 # --- Texts ----------------------------------------------------------------------------------
 SOF_HIT = "${$MWS*(0.022*$AP+0.044*$SPH)}"
@@ -180,6 +211,13 @@ TEXTS = {
         f"{TAUNT_SECONDS} sec.",
         "Taunted."),
     SPELL_SEAL_OF_FURY_DAMAGE: ("Seal of Fury", "", ""),
+    SPELL_GLYPH_OF_SEAL_OF_FURY: ("Glyph of Seal of Fury",
+        f"You gain {GLYPH_MANA_PERCENT}% of your base mana each time you use a Judgement with Seal of "
+        "Fury active.", None),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_ITEM: ("Glyph of Seal of Fury",
+        f"You gain {GLYPH_MANA_PERCENT}% of your base mana each time you use a Judgement with Seal of "
+        "Fury active.", None),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE: ("Glyph of Seal of Fury", None, None),
     SPELL_FURY_WARD: ("Fury Ward",
         "Absorbs damage. Only the strongest Fury Ward counts; a new one replaces a weaker one.",
         "Absorbs damage."),
@@ -298,7 +336,27 @@ def new_spells(rows):
     ward[F_EFFECT_BONUS] = f32(0.0)                                 # the server sets the amount
     clear_effect(ward, 1)                                           # Sacred Shield's Flash of Light crit
 
-    return [seal, judgement, damage, ward]
+    glyph = list(find(rows, SPELL_GLYPH_OF_SEAL_OF_COMMAND))
+    glyph[F_ID] = SPELL_GLYPH_OF_SEAL_OF_FURY
+    glyph[F_PROC_FLAGS] = 0
+    glyph[F_PROC_CHANCE] = 101
+    clear_effect(glyph, 0)                                          # it triggered 68082 on Judgement of Command
+    glyph[F_EFFECT] = SPELL_EFFECT_APPLY_AURA
+    glyph[F_EFFECT_AURA] = SPELL_AURA_DUMMY
+    glyph[F_EFFECT_TARGET_A] = TARGET_UNIT_CASTER
+    glyph[F_EFFECT_DIE_SIDES] = 1
+    glyph[F_EFFECT_BASE_POINTS] = GLYPH_MANA_PERCENT - 1           # only for the tooltip's $s1
+    glyph[F_EFFECT_MULTIPLE_VALUE] = f32(1.0)
+
+    glyph_item = list(find(rows, SPELL_GLYPH_OF_SEAL_OF_COMMAND_ITEM))
+    glyph_item[F_ID] = SPELL_GLYPH_OF_SEAL_OF_FURY_ITEM
+    glyph_item[F_EFFECT_MISC_VALUE] = GLYPH_OF_SEAL_OF_FURY          # the glyph it inscribes
+
+    recipe = list(find(rows, SPELL_GLYPH_OF_SEAL_OF_COMMAND_RECIPE))
+    recipe[F_ID] = SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE
+    recipe[F_EFFECT_ITEM_TYPE] = ITEM_GLYPH_OF_SEAL_OF_FURY
+
+    return [seal, judgement, damage, ward, glyph, glyph_item, recipe]
 
 
 def set_texts(row, strings):
@@ -346,7 +404,7 @@ def patch_spell_dbc(src, dst):
         set_texts(find(rows, glyph_id), strings)
 
     write_dbc(dst, rows, strings, FIELDS)
-    print(f"{dst}: Holy Strike (instant), Seal of Fury ({', '.join(str(s[F_ID]) for s in added)}), "
+    print(f"{dst}: Holy Strike (instant), Seal of Fury and its glyph ({', '.join(str(s[F_ID]) for s in added)}), "
           f"{len(BLESSINGS)} blessings at 1 hour, {len(JUDGEMENT_DEBUFFS)} Judgement debuffs at 40 sec, "
           f"{len(GLYPHS)} glyph tooltips")
 
@@ -367,8 +425,47 @@ def patch_sla_dbc(src, dst):
     rows.append([SLA_SEAL_OF_FURY, SKILL_PROTECTION, SPELL_SEAL_OF_FURY, 0, CLASS_MASK_PALADIN,
                  0, 0, 1, 0, 0, 0, 0, 0, 0])
 
+    # The recipe: Inscription, learned and skilled up like Glyph of Seal of Command's.
+    stock = next((r for r in rows if r[2] == SPELL_GLYPH_OF_SEAL_OF_COMMAND_RECIPE), None)
+    if stock is None:
+        sys.exit(f"{src}: no row for {SPELL_GLYPH_OF_SEAL_OF_COMMAND_RECIPE}")
+    recipe = list(stock)
+    recipe[0] = SLA_GLYPH_OF_SEAL_OF_FURY_RECIPE
+    recipe[2] = SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE
+    rows = [r for r in rows if r[0] != SLA_GLYPH_OF_SEAL_OF_FURY_RECIPE and r[2] != SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE]
+    rows.append(recipe)
+
     write_dbc(dst, rows, strings, SLA_FIELDS)
-    print(f"{dst}: Holy Strike in the Holy tab, Seal of Fury in the Protection tab")
+    print(f"{dst}: Holy Strike in the Holy tab, Seal of Fury in the Protection tab, "
+          "Glyph of Seal of Fury in Inscription")
+
+
+def copy_row(src, dst, field_count, stock_id, new_id, change, what):
+    """Replace row new_id with a copy of row stock_id, then change it."""
+    rows, strings = read_dbc(src, field_count)
+    stock = next((r for r in rows if r[0] == stock_id), None)
+    if stock is None:
+        sys.exit(f"{src}: no row {stock_id}")
+    row = list(stock)
+    row[0] = new_id
+    change(row)
+    rows = [r for r in rows if r[0] != new_id] + [row]
+    write_dbc(dst, rows, strings, field_count)
+    print(f"{dst}: {what}")
+
+
+def patch_glyph_dbc(src, dst):
+    def change(row):
+        row[1] = SPELL_GLYPH_OF_SEAL_OF_FURY      # same slot type (major) and rune icon as Seal of Command's
+    copy_row(src, dst, GLYPH_FIELDS, GLYPH_OF_SEAL_OF_COMMAND, GLYPH_OF_SEAL_OF_FURY, change,
+             f"glyph {GLYPH_OF_SEAL_OF_FURY}, Glyph of Seal of Fury")
+
+
+def patch_item_dbc(src, dst):
+    # Class, subclass, material and icon of Glyph of Seal of Command. The server must agree
+    # (item_dbc in the SQL), or it resets item_template to the stock values.
+    copy_row(src, dst, ITEM_FIELDS, ITEM_GLYPH_OF_SEAL_OF_COMMAND, ITEM_GLYPH_OF_SEAL_OF_FURY, lambda row: None,
+             f"item {ITEM_GLYPH_OF_SEAL_OF_FURY}, Glyph of Seal of Fury")
 
 
 # --- SQL ------------------------------------------------------------------------------------
@@ -381,9 +478,9 @@ def sql_value(field, value):
     return str(struct.unpack("<i", struct.pack("<I", value))[0])
 
 
-def print_sql(dbc):
+def print_sql(dbc, ids):
     rows, _ = read_dbc(dbc, FIELDS)
-    added = new_spells(rows)
+    added = [s for s in new_spells(rows) if not ids or s[F_ID] in ids]
     print(f"DELETE FROM `spell_dbc` WHERE `ID` IN ({', '.join(str(s[F_ID]) for s in added)});")
     print("INSERT INTO `spell_dbc` VALUES")
     lines = []
@@ -466,7 +563,22 @@ def mpq_file(files, name):
     return next((f for f in files if f[1].lower() == name.lower()), None)
 
 
-def build_mpq(src_mpq, out):
+def mpq_or_stock(files, name, stock_dir, folder):
+    """The MPQ's copy of DBFilesClient\\<name>, or else the stock file, added to the MPQ."""
+    found = mpq_file(files, f"DBFilesClient\\{name}")
+    if found:
+        return found
+    stock = os.path.join(stock_dir, name) if stock_dir else None
+    if not stock or not os.path.exists(stock):
+        sys.exit(f"the MPQ has no {name}; give --stock-dbc a folder with the client's own {name}")
+    dst = os.path.join(folder, "DBFilesClient", name)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copyfile(stock, dst)
+    files.append((dst, f"DBFilesClient\\{name}"))
+    return files[-1]
+
+
+def build_mpq(src_mpq, out, stock_dir):
     folder = tempfile.mkdtemp(prefix="forever-paladin-")
     try:
         files = extract_all(src_mpq, folder)
@@ -475,8 +587,12 @@ def build_mpq(src_mpq, out):
         if spell is None or sla is None:
             sys.exit(f"{src_mpq} needs DBFilesClient\\Spell.dbc and SkillLineAbility.dbc; "
                      "use --dbc and --sla with the client's own files")
+        glyph = mpq_or_stock(files, "GlyphProperties.dbc", stock_dir, folder)
+        item = mpq_or_stock(files, "Item.dbc", stock_dir, folder)
         patch_spell_dbc(spell[0], spell[0])
         patch_sla_dbc(sla[0], sla[0])
+        patch_glyph_dbc(glyph[0], glyph[0])
+        patch_item_dbc(item[0], item[0])
         # Keep the original order, with Spell.dbc last as the realm's patch-P has it.
         files.sort(key=lambda f: f[1].lower() == "dbfilesclient\\spell.dbc")
         pack(out, files)
@@ -489,13 +605,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--from-mpq", help="patch MPQ that already ships Spell.dbc and SkillLineAbility.dbc")
     parser.add_argument("--out", help="MPQ to write (with --from-mpq)")
+    parser.add_argument("--stock-dbc", help="folder with the stock GlyphProperties.dbc and Item.dbc, "
+                        "for an MPQ that doesn't ship them")
     parser.add_argument("--dbc", help="a Spell.dbc to start from")
     parser.add_argument("--sla", help="a SkillLineAbility.dbc to start from (with --dbc)")
-    parser.add_argument("--out-dir", help="where to write both DBCs (with --dbc and --sla)")
-    parser.add_argument("--sql", action="store_true", help="print the server's spell_dbc SQL")
+    parser.add_argument("--glyph", help="a GlyphProperties.dbc to start from (with --dbc)")
+    parser.add_argument("--item", help="an Item.dbc to start from (with --dbc)")
+    parser.add_argument("--out-dir", help="where to write the DBCs (with --dbc, --sla, --glyph and --item)")
+    parser.add_argument("--sql", nargs="*", type=int, metavar="ID",
+                        help="print the server's spell_dbc SQL, for these new spells or all of them")
     args = parser.parse_args()
 
-    if args.sql:
+    if args.sql is not None:
         dbc = args.dbc
         folder = None
         if not dbc and args.from_mpq:
@@ -503,15 +624,17 @@ def main():
             dbc = mpq_file(extract_all(args.from_mpq, folder), "DBFilesClient\\Spell.dbc")[0]
         if not dbc:
             sys.exit("--sql needs --dbc or --from-mpq")
-        print_sql(dbc)
+        print_sql(dbc, set(args.sql))
         if folder:
             shutil.rmtree(folder)
     elif args.from_mpq and args.out:
-        build_mpq(args.from_mpq, args.out)
-    elif args.dbc and args.sla and args.out_dir:
+        build_mpq(args.from_mpq, args.out, args.stock_dbc)
+    elif args.dbc and args.sla and args.glyph and args.item and args.out_dir:
         os.makedirs(args.out_dir, exist_ok=True)
         patch_spell_dbc(args.dbc, os.path.join(args.out_dir, "Spell.dbc"))
         patch_sla_dbc(args.sla, os.path.join(args.out_dir, "SkillLineAbility.dbc"))
+        patch_glyph_dbc(args.glyph, os.path.join(args.out_dir, "GlyphProperties.dbc"))
+        patch_item_dbc(args.item, os.path.join(args.out_dir, "Item.dbc"))
     else:
         parser.print_help()
 

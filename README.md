@@ -5,12 +5,13 @@ paladin changes to a 3.3.5 server:
 
 - **Holy Strike:** every paladin learns it at level 6, whatever their spec.
 - **Shield Specialization's mana return:** blocks can restore 6% of base mana.
-- **Seal of Fury:** a tanking seal whose Judgement taunts. Needs the client patch.
+- **Seal of Fury:** a tanking seal whose Judgement taunts, and **Glyph of Seal of Fury** for mana
+  on Judgement. Needs the client patch.
 - **1 hour Blessings** and **40 second Judgements**, with the Blessing of Might and Wisdom glyphs
   reworked to match.
 
 Players need the client patch for Holy Strike (it's instant, and the stock client thinks it's a
-next-swing attack) and Seal of Fury (four new spells). The mana return and the durations work
+next-swing attack), Seal of Fury (four new spells) and its glyph. The mana return and the durations work
 without it; the patch only updates their tooltips.
 
 Some of WoW Forever's paladin changes are already how 3.3.5 works, so the module leaves them
@@ -80,6 +81,23 @@ The spells are new (90080 Seal of Fury, 90081 Judgement of Fury, 90082 its Holy 
 Fury Ward). The server gets them from `spell_dbc`, the client from the patch
 (`tools/build_patch.py`). A player without the patch can't see or cast the seal.
 
+### Glyph of Seal of Fury
+
+A major glyph that does for Seal of Fury what Glyph of Seal of Command does for Seal of Command:
+**each Judgement you use with Seal of Fury active gives you back 8% of your base mana** (121 at
+level 60, 352 at 80). It counts when the Judgement hits; the combat log shows "You gain 352 Mana
+from Glyph of Seal of Fury."
+
+Scribes make it: **every trainer that teaches Glyph of Seal of Command teaches it too**, for the
+same price and at the same Inscription skill (335), and it takes the same materials (Ethereal
+Ink and Resilient Parchment, with a Virtuoso Inking Set) and skills up the same way (up to 350).
+
+Under the hood: the glyph is spell 90084, the glyph item's spell 90085, the recipe 90086 and the
+glyph slot entry 912 (GlyphProperties). The item is 37550, Blizzard's unused "Deprecated Test Glyph
+2": no loot, vendor, quest or recipe gives it, and the client already has an entry for it, so
+the patch only changes its icon to Glyph of Seal of Command's instead of adding a new item. The
+glyph's aura does nothing by itself; Judgement of Fury's script checks for it and gives the mana.
+
 ## Blessings, Judgements and glyphs
 
 As in WoW Forever:
@@ -148,6 +166,7 @@ start.
 | `ForeverPaladin.SealOfFury.Level` | `10` | Level at which paladins learn it. |
 | `ForeverPaladin.SealOfFury.AttackPowerCoefficient` / `SpellPowerCoefficient` | `0.022` / `0.044` | Holy damage per hit, per second of weapon speed. |
 | `ForeverPaladin.SealOfFury.WardPercent` | `50` | Fury Ward's share of that Holy damage. `0` for no ward. |
+| `ForeverPaladin.SealOfFury.GlyphManaPercent` | `8` | Base mana Glyph of Seal of Fury returns per Judgement, in percent. `0` makes the glyph do nothing. |
 | `ForeverPaladin.Blessings.Duration` | `3600000` | Blessing duration in milliseconds. `0` keeps 10 / 30 minutes. |
 | `ForeverPaladin.Judgements.Duration` | `40000` | Judgement debuff duration in milliseconds. `0` keeps 20 seconds. |
 | `ForeverPaladin.Glyphs.BlessingCostReduction` | `50` | Might and Wisdom glyph cost cut in percent. `0` keeps the old +20 minutes. |
@@ -169,10 +188,12 @@ value at the top of `tools/build_patch.py` and rebuild the patch.
   log in. Then stop the worldserver, delete the module, rebuild, and run both uninstall files:
 
   - `data/sql/uninstall/mod_forever_paladin_uninstall_world.sql` on the world database removes
-    the script bindings and Seal of Fury's spells.
+    the script bindings, Seal of Fury's spells and the glyph, and turns item 37550 back into the
+    stock unused item.
   - `data/sql/uninstall/mod_forever_paladin_uninstall_characters.sql` on the characters database
     takes Holy Strike and Seal of Fury off every character, their action bars, saved cooldowns
-    and auras. Without it, paladins who didn't log in keep the unscripted NPC version of Holy
+    and auras, clears Glyph of Seal of Fury from glyph slots, and removes its recipe and the
+    glyphs in bags and banks (not ones in the mail or on the auction house). Without it, paladins who didn't log in keep the unscripted NPC version of Holy
     Strike.
 
   If you shipped the client patch, take the module's changes out of it too, or the tooltips and
@@ -183,24 +204,31 @@ folder.
 
 ## Client patch
 
-Holy Strike and Seal of Fury need it. For the rest it's optional: without it, blessing,
+Holy Strike, Seal of Fury and its glyph need it. For the rest it's optional: without it, blessing,
 Judgement and glyph tooltips show the old durations and text, but work the same.
 
-`tools/build_patch.py` changes two client files:
+`tools/build_patch.py` changes four client files:
 
 - **Spell.dbc:** Holy Strike made instant, with its tooltip, cooldown and cost; Seal of Fury's
-  four new spells;
-  blessing and Judgement durations (for the tooltips); the two glyph tooltips.
-- **SkillLineAbility.dbc:** Holy Strike in the Holy tab and Seal of Fury in the Protection tab.
+  four new spells and Glyph of Seal of Fury's three; blessing and Judgement durations (for the
+  tooltips); the two glyph tooltips.
+- **SkillLineAbility.dbc:** Holy Strike in the Holy tab, Seal of Fury in the Protection tab and the
+  glyph recipe in Inscription.
+- **GlyphProperties.dbc:** glyph 912, Glyph of Seal of Fury.
+- **Item.dbc:** item 37550 becomes a paladin glyph with Glyph of Seal of Command's icon.
 
 Only the newest client patch's Spell.dbc is used, so start from the patch that already ships one
 (patch-P on this realm) and the script keeps its other changes:
 
 ```bash
-tools/build_patch.py --from-mpq patch-P.MPQ --out patch-P.MPQ.new
-tools/build_patch.py --dbc Spell.dbc --sla SkillLineAbility.dbc --out-dir DBFilesClient
+tools/build_patch.py --from-mpq patch-P.MPQ --stock-dbc <dbc folder> --out patch-P.MPQ.new
+tools/build_patch.py --dbc Spell.dbc --sla SkillLineAbility.dbc --glyph GlyphProperties.dbc --item Item.dbc --out-dir DBFilesClient
 tools/build_patch.py --sql --dbc Spell.dbc   # the spell_dbc rows in data/sql
 ```
+
+`--stock-dbc` is a folder with the client's own GlyphProperties.dbc and Item.dbc (the client's
+`DBFilesClient`, or AzerothCore's `data/dbc`). It's only read when the MPQ doesn't ship those
+files yet; once it does, the script patches the MPQ's copies.
 
 It needs StormLib for the MPQ (`STORMLIB` if it isn't `/usr/local/lib/libstorm.dylib`). Running it
 again on its own output gives the same result. Players who get the new patch should delete their
