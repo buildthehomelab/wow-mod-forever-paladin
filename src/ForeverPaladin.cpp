@@ -30,6 +30,13 @@
  * from patch-P (tools/build_patch.py); the core's own Judgement script casts Judgement of Fury,
  * because the seal names it in its third effect like every other seal.
  *
+ * Glyph of Seal of Fury, a major glyph like Glyph of Seal of Command: each Judgement you use with
+ * Seal of Fury active returns 8% of your base mana. Scribes make it with the same recipe, trainer
+ * and materials as Glyph of Seal of Command. The glyph (90084), its item's spell (90085), the
+ * recipe (90086) and the glyph item (37550, Blizzard's unused "Deprecated Test Glyph 2") come from
+ * the SQL, and for the client from patch-P, which also carries its GlyphProperties.dbc and
+ * Item.dbc rows.
+ *
  * Blessings and Judgements, as in WoW Forever: Blessings and Greater Blessings last 1 hour, and
  * Judgement debuffs last 40 seconds, except Judgement of Justice. The server changes the spells'
  * durations when it starts. With 1 hour blessings, the glyphs that make Blessing of Might and
@@ -68,6 +75,7 @@ namespace
     constexpr uint32 SPELL_JUDGEMENT_OF_FURY = 90081;
     constexpr uint32 SPELL_SEAL_OF_FURY_DAMAGE = 90082;
     constexpr uint32 SPELL_FURY_WARD = 90083;
+    constexpr uint32 SPELL_GLYPH_OF_SEAL_OF_FURY = 90084;
 
     // First ranks; the later ranks are found through the spell chains.
     constexpr std::array<uint32, 8> SPELL_BLESSINGS = {
@@ -123,6 +131,7 @@ namespace
         float sealOfFuryAttackPowerCoefficient = 0.022f;
         float sealOfFurySpellPowerCoefficient = 0.044f;
         float furyWardPercent = 50.0f;
+        float glyphManaPercent = 8.0f;
 
         uint32 blessingDuration = 3600000;
         uint32 judgementDuration = 40000;
@@ -518,6 +527,36 @@ class spell_pal_forever_seal_of_fury : public AuraScript
     }
 };
 
+// 90081 - Judgement of Fury. With Glyph of Seal of Fury, each Judgement that hits returns a share
+// of base mana, like Glyph of Seal of Command does for Judgement of Command. The glyph's aura is a
+// plain dummy; this script does the work.
+class spell_pal_forever_judgement_of_fury : public SpellScript
+{
+    PrepareSpellScript(spell_pal_forever_judgement_of_fury);
+
+    bool Validate(SpellInfo const* /*spellInfo*/) override
+    {
+        return ValidateSpellInfo({ SPELL_GLYPH_OF_SEAL_OF_FURY });
+    }
+
+    // Shows in the combat log as "You gain 121 Mana from Glyph of Seal of Fury."
+    void ReturnMana()
+    {
+        Unit* caster = GetCaster();
+        if (!caster || config.glyphManaPercent <= 0.0f || !caster->HasAura(SPELL_GLYPH_OF_SEAL_OF_FURY))
+            return;
+
+        uint32 const mana = uint32(std::lround(caster->GetCreateMana() * config.glyphManaPercent / 100.0f));
+        if (mana)
+            caster->EnergizeBySpell(caster, SPELL_GLYPH_OF_SEAL_OF_FURY, mana, POWER_MANA);
+    }
+
+    void Register() override
+    {
+        AfterHit += SpellHitFn(spell_pal_forever_judgement_of_fury::ReturnMana);
+    }
+};
+
 // 90082 - Seal of Fury, the Holy damage. With a shield equipped, the paladin gets a Fury Ward
 // (90083) that absorbs a share of the damage this hit really did. Wards don't stack: a new one
 // only replaces the current one if it's bigger, and either way the ward lasts 10 seconds more.
@@ -586,6 +625,7 @@ public:
         config.sealOfFuryAttackPowerCoefficient = sConfigMgr->GetOption<float>("ForeverPaladin.SealOfFury.AttackPowerCoefficient", 0.022f);
         config.sealOfFurySpellPowerCoefficient  = sConfigMgr->GetOption<float>("ForeverPaladin.SealOfFury.SpellPowerCoefficient", 0.044f);
         config.furyWardPercent                  = sConfigMgr->GetOption<float>("ForeverPaladin.SealOfFury.WardPercent", 50.0f);
+        config.glyphManaPercent                 = sConfigMgr->GetOption<float>("ForeverPaladin.SealOfFury.GlyphManaPercent", 8.0f);
 
         config.blessingDuration   = sConfigMgr->GetOption<uint32>("ForeverPaladin.Blessings.Duration", 3600000);
         config.judgementDuration  = sConfigMgr->GetOption<uint32>("ForeverPaladin.Judgements.Duration", 40000);
@@ -639,5 +679,6 @@ void AddForeverPaladinScripts()
     RegisterSpellScript(spell_holy_strike);
     RegisterSpellScript(spell_pal_forever_shield_mana);
     RegisterSpellScript(spell_pal_forever_seal_of_fury);
+    RegisterSpellScript(spell_pal_forever_judgement_of_fury);
     RegisterSpellScript(spell_pal_forever_seal_of_fury_damage);
 }
