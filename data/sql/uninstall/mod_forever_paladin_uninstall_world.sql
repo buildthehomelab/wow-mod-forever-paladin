@@ -11,7 +11,7 @@
 -- the empty stub AzerothCore ships and removes its spell_proc row and script binding (Shield
 -- Specialization's mana return), and removes Seal of Fury's four spells (90080-90083) with their
 -- spell_proc, spell_bonus_data and script rows, and Glyph of Seal of Fury: its three spells
--- (90084-90086), glyph 912, recipe row and trainer rows, and item 37550, which goes back to
+-- (90084-90087), glyph 912, recipe row and trainer rows, and item 37550, which goes back to
 -- Blizzard's unused "Deprecated Test Glyph 2". Blessing and Judgement durations and the glyphs
 -- are only changed in memory, so there's nothing to undo for them. Idempotent: safe to run again.
 
@@ -22,7 +22,7 @@ DELETE FROM `spell_dbc` WHERE `ID` IN (90080, 90081, 90082, 90083);
 DELETE FROM `spell_proc` WHERE `SpellId` = 90080;
 DELETE FROM `spell_bonus_data` WHERE `entry` = 90081;
 
-DELETE FROM `spell_dbc` WHERE `ID` IN (90084, 90085, 90086);
+DELETE FROM `spell_dbc` WHERE `ID` IN (90084, 90085, 90086, 90087);
 DELETE FROM `glyphproperties_dbc` WHERE `ID` = 912;
 DELETE FROM `skilllineability_dbc` WHERE `ID` = 90086;
 DELETE FROM `trainer_spell` WHERE `SpellId` = 90086;

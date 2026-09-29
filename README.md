@@ -93,7 +93,9 @@ same price and at the same Inscription skill (335), and it takes the same materi
 Ink and Resilient Parchment, with a Virtuoso Inking Set) and skills up the same way (up to 350).
 
 Under the hood: the glyph is spell 90084, the glyph item's spell 90085, the recipe 90086 and the
-glyph slot entry 912 (GlyphProperties). The item is 37550, Blizzard's unused "Deprecated Test Glyph
+glyph slot entry 912 (GlyphProperties). The mana is credited to 90087, a visible copy of the spell
+Glyph of Seal of Command uses (68082): glyph auras are hidden, and the client leaves hidden spells
+out of the combat log. The item is 37550, Blizzard's unused "Deprecated Test Glyph
 2": no loot, vendor, quest or recipe gives it, and the client already has an entry for it, so
 the patch only changes its icon to Glyph of Seal of Command's instead of adding a new item. The
 glyph's aura does nothing by itself; Judgement of Fury's script checks for it and gives the mana.
@@ -210,7 +212,7 @@ Judgement and glyph tooltips show the old durations and text, but work the same.
 `tools/build_patch.py` changes four client files:
 
 - **Spell.dbc:** Holy Strike made instant, with its tooltip, cooldown and cost; Seal of Fury's
-  four new spells and Glyph of Seal of Fury's three; blessing and Judgement durations (for the
+  four new spells and Glyph of Seal of Fury's four; blessing and Judgement durations (for the
   tooltips); the two glyph tooltips.
 - **SkillLineAbility.dbc:** Holy Strike in the Holy tab, Seal of Fury in the Protection tab and the
   glyph recipe in Inscription.
