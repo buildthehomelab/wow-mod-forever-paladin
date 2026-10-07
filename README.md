@@ -134,6 +134,14 @@ treats the button as a next-swing attack, so it misbehaves.
 
 NPCs that cast Holy Strike keep their damage, cooldown and 75 mana; they strike instantly too.
 
+## Requirements
+
+- [AzerothCore](https://github.com/azerothcore/azerothcore-wotlk) `master` (WotLK 3.3.5a)
+- A WoW 3.3.5a (12340) client
+- The client patch built by `tools/build_patch.py` for Holy Strike, Seal of Fury and its glyph (see "Client patch"). Without it the mana return and the durations still work
+- To build the patch: Python 3 and StormLib (`libstorm`)
+- The SQL in `data/sql/db-world` is applied to the world database on the next start
+
 ## Install
 
 Clone it into your AzerothCore `modules` folder **as `mod-forever-paladin`**, without the repo's
@@ -246,3 +254,25 @@ again on its own output gives the same result. Players who get the new patch sho
   the reload; glyphs change at the next login.
 - WoW Forever's per-spec Holy Strike talents aren't included: changing talent trees needs a bigger
   client patch.
+
+## Troubleshooting
+
+- **Holy Strike acts as a next-swing attack and shows 75 mana.** The client patch is missing. Build
+  it with `tools/build_patch.py` and ship it.
+- **The new spells or tooltips don't show after a patch update.** Delete the `Cache/` folder in
+  the client.
+- **Holy Strike or Seal of Fury doesn't appear.** Existing paladins get Holy Strike at their next
+  login, and it is only taught while `ForeverPaladin.HolyStrike.Enable` is `1` (Seal of Fury:
+  `ForeverPaladin.SealOfFury.Enable`, from level `ForeverPaladin.SealOfFury.Level`).
+- **Playerbots paladins don't use Holy Strike or Seal of Fury.** They learn them, but their
+  strategies have no actions for them.
+
+## Credits
+
+Author: [buildthehomelab](https://github.com/buildthehomelab)
+
+The design follows the WoW Forever private server ruleset. The code is original.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
