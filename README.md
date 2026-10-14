@@ -228,7 +228,7 @@ Judgement and glyph tooltips show the old durations and text, but work the same.
 - **Item.dbc:** item 37550 becomes a paladin glyph with Glyph of Seal of Command's icon.
 
 Only the newest client patch's Spell.dbc is used, so start from the patch that already ships one
-(patch-P on this realm) and the script keeps its other changes:
+(`patch-P.MPQ` below is an example name) and the script keeps its other changes:
 
 ```bash
 tools/build_patch.py --from-mpq patch-P.MPQ --stock-dbc <dbc folder> --out patch-P.MPQ.new

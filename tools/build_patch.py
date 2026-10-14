@@ -4,8 +4,8 @@ mod-forever-paladin: write the module's client changes into a 3.3.5a (12340) cli
 SkillLineAbility.dbc, GlyphProperties.dbc and Item.dbc, and pack them into an MPQ.
 
 The 3.3.5 client only casts spells in its own Spell.dbc, and a patch MPQ replaces the whole file,
-so the changes have to go into the Spell.dbc your realm patch already ships (patch-P on this
-server). Start from that patch so its other spell changes are kept:
+so the changes have to go into the Spell.dbc your realm patch already ships (patch-P.MPQ in the
+examples below; use your own patch's name). Start from that patch so its other spell changes are kept:
 
     python3 build_patch.py --from-mpq patch-P.MPQ --stock-dbc dbc --out patch-P.MPQ.new
     python3 build_patch.py --dbc Spell.dbc --sla SkillLineAbility.dbc --glyph GlyphProperties.dbc \
@@ -560,7 +560,7 @@ def pack(out, files):
     if os.path.exists(out):
         os.remove(out)
     h = handle()
-    # MPQ v1 with a listfile and attributes; each file zlib-compressed, like the realm's patches.
+    # MPQ v1 with a listfile and attributes; each file zlib-compressed, like other client patches.
     if not lib.SFileCreateArchive(out.encode(), 0x00300000, max(16, len(files) * 2), ctypes.byref(h)):
         sys.exit(f"can't create {out}")
     for src, name in files:
@@ -603,7 +603,7 @@ def build_mpq(src_mpq, out, stock_dir):
         patch_sla_dbc(sla[0], sla[0])
         patch_glyph_dbc(glyph[0], glyph[0])
         patch_item_dbc(item[0], item[0])
-        # Keep the original order, with Spell.dbc last as the realm's patch-P has it.
+        # Keep the original order, with Spell.dbc last, as patch MPQs usually have it.
         files.sort(key=lambda f: f[1].lower() == "dbfilesclient\\spell.dbc")
         pack(out, files)
         print(f"{out}: {', '.join(name for _, name in files)}")
