@@ -221,7 +221,7 @@ TEXTS = {
         f"You gain {GLYPH_MANA_PERCENT}% of your base mana each time you use a Judgement with Seal of "
         "Fury active.", None),
     SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE: ("Glyph of Seal of Fury", None, None),
-    SPELL_GLYPH_OF_SEAL_OF_FURY_MANA: ("Glyph of Seal of Fury", None, None),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_MANA: ("Glyph of Seal of Fury", "You gain $s1% of your base mana.", None),
     SPELL_FURY_WARD: ("Fury Ward",
         "Absorbs damage. Only the strongest Fury Ward counts; a new one replaces a weaker one.",
         "Absorbs damage."),
@@ -232,6 +232,62 @@ for glyph_id, blessing in GLYPHS.items():
         f"Reduces the mana cost of your Blessing of {blessing} and Greater Blessing of {blessing} "
         f"spells by {GLYPH_COST_REDUCTION_PERCENT}%.", None)
 
+
+
+FR_TEXTS = {
+    SPELL_HOLY_STRIKE: (
+        "Frappe sacrée",
+        "Une frappe instantanée qui inflige "
+        f"${{{HOLY_STRIKE_WEAPON}*$mw+{HOLY_STRIKE_PER_LEVEL}*$PL+{HOLY_STRIKE_SP}*$SPH}} à "
+        f"${{{HOLY_STRIKE_WEAPON}*$MW+{HOLY_STRIKE_PER_LEVEL}*$PL+{HOLY_STRIKE_SP}*$SPH}} points de dégâts du Sacré.",
+        None
+    ),
+    SPELL_SEAL_OF_FURY: (
+        "Sceau de fureur",
+        f"Imprègne le paladin d'une fureur sacrée pendant $d. Chaque attaque de mêlée inflige {SOF_HIT} points de dégâts du Sacré supplémentaires. Avec un bouclier équipé, chaque coup confère également une protection de fureur qui absorbe des dégâts égaux à {FURY_WARD_PERCENT}% des dégâts du Sacré infligés. Un seul sceau peut être actif à la fois.\n\nLibérer l'énergie de ce sceau inflige {SOF_JUDGEMENT} points de dégâts du Sacré à un ennemi et le provoque pendant {TAUNT_SECONDS} s.",
+        f"Les attaques de mêlée infligent {SOF_HIT} points de dégâts du Sacré supplémentaires et confèrent une protection de fureur avec un bouclier."
+    ),
+    SPELL_JUDGEMENT_OF_FURY: (
+        "Jugement de fureur",
+        f"Inflige {SOF_JUDGEMENT} points de dégâts du Sacré et provoque la cible pendant {TAUNT_SECONDS} s.",
+        "Provoqué."
+    ),
+    SPELL_SEAL_OF_FURY_DAMAGE: ("Sceau de fureur", "", ""),
+    SPELL_GLYPH_OF_SEAL_OF_FURY: (
+        "Glyphe de Sceau de fureur",
+        f"Vous récupérez {GLYPH_MANA_PERCENT}% de votre mana de base chaque fois que vous utilisez un Jugement alors que le Sceau de fureur est actif.",
+        None
+    ),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_ITEM: (
+        "Glyphe de Sceau de fureur",
+        f"Vous récupérez {GLYPH_MANA_PERCENT}% de votre mana de base chaque fois que vous utilisez un Jugement alors que le Sceau de fureur est actif.",
+        None
+    ),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_RECIPE: ("Glyphe de Sceau de fureur", None, None),
+    SPELL_GLYPH_OF_SEAL_OF_FURY_MANA: (
+        "Glyphe de Sceau de fureur",
+        "Vous récupérez $s1% de votre mana de base.",
+        None
+    ),
+    SPELL_FURY_WARD: (
+        "Protection de fureur",
+        "Absorbe les dégâts. Seule la protection de fureur la plus puissante est conservée ; une nouvelle protection remplace une plus faible.",
+        "Absorbe les dégâts."
+    ),
+}
+
+BLESSING_NAMES_FR = {
+    "Might": "Puissance",
+    "Wisdom": "Sagesse",
+}
+
+for glyph_id, blessing in GLYPHS.items():
+    blessing_fr = BLESSING_NAMES_FR.get(blessing, blessing)
+    FR_TEXTS[glyph_id] = (
+        None,
+        f"Réduit de {GLYPH_COST_REDUCTION_PERCENT}% le coût en mana des sorts Bénédiction de {blessing_fr} et Bénédiction supérieure de {blessing_fr}.",
+        None
+    )
 
 # --- DBC helpers ----------------------------------------------------------------------------
 
@@ -376,14 +432,17 @@ def set_texts(row, strings):
             row[F_NAME + i] = 0
             row[F_NAME_SUBTEXT + i] = 0
         row[F_NAME] = add_string(strings, name)
+        row[F_NAME + 2] = add_string(strings, FR_TEXTS.get(row[F_ID], (name, description, aura_description))[0] or name)
     if description is not None:
         for i in range(16):
             row[F_DESCRIPTION + i] = 0
         row[F_DESCRIPTION] = add_string(strings, description)
+        row[F_DESCRIPTION + 2] = add_string(strings, FR_TEXTS.get(row[F_ID], (name, description, aura_description))[1] or description)
     if aura_description is not None:
         for i in range(16):
             row[F_AURA_DESCRIPTION + i] = 0
         row[F_AURA_DESCRIPTION] = add_string(strings, aura_description)
+        row[F_AURA_DESCRIPTION + 2] = add_string(strings, FR_TEXTS.get(row[F_ID], (name, description, aura_description))[2] or aura_description)
 
 
 def patch_spell_dbc(src, dst):
